@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>社労士 進捗帳</title>
+<meta name="theme-color" content="#1f4e5f">
+<style>
+:root{
+  --bg:#f5f3ee;--panel:#ffffff;--ink:#22262a;--sub:#6b7176;--line:#e2ded5;
+  --accent:#1f6f78;--accent-ink:#ffffff;--accent-soft:#e3f0ef;
+  --ok:#2f7d4f;--ok-soft:#e2f2e7;--ng:#c0392b;--ng-soft:#fbe5e2;--mid:#b7791f;--mid-soft:#fbf0dc;
+  --none:#ebe8e1;--part:#cfe5e2;--done:#2f8a7f;--late:#c0392b;
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16191b;--panel:#1f2326;--ink:#e7e9ea;--sub:#9aa1a6;--line:#30363a;
+  --accent:#4fb3b9;--accent-ink:#0f1416;--accent-soft:#1d3335;
+  --ok:#5cc28a;--ok-soft:#1c3226;--ng:#ef7b6d;--ng-soft:#3a2220;--mid:#e3b25a;--mid-soft:#382d18;
+  --none:#2a2f32;--part:#24494a;--done:#3ea89b;--late:#ef7b6d;}}
+:root[data-theme="dark"]{
+  --bg:#16191b;--panel:#1f2326;--ink:#e7e9ea;--sub:#9aa1a6;--line:#30363a;
+  --accent:#4fb3b9;--accent-ink:#0f1416;--accent-soft:#1d3335;
+  --ok:#5cc28a;--ok-soft:#1c3226;--ng:#ef7b6d;--ng-soft:#3a2220;--mid:#e3b25a;--mid-soft:#382d18;
+  --none:#2a2f32;--part:#24494a;--done:#3ea89b;--late:#ef7b6d;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;font-size:15px;line-height:1.6}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+.hwrap{max-width:960px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.02em}
+.sync{font-size:12px;color:var(--sub)}
+nav{display:flex;gap:4px;margin-left:auto}
+nav button{border:0;background:none;color:var(--sub);padding:6px 12px;border-radius:8px;font:inherit;cursor:pointer}
+nav button.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:5px 9px;cursor:pointer;font:inherit}
+main{max-width:960px;margin:0 auto;padding:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.muted{color:var(--sub);font-size:13px}
+.big{font-size:22px;font-weight:700}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.stat{flex:1 1 120px;background:var(--bg);border-radius:8px;padding:10px 12px}
+.stat .lbl{font-size:12px;color:var(--sub)}
+.stat .val{font-size:20px;font-weight:700}
+.chip{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--none);color:var(--sub);margin-right:4px}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.ng{background:var(--ng-soft);color:var(--ng)}
+.chip.mid{background:var(--mid-soft);color:var(--mid)}
+.sec{border-top:1px solid var(--line);padding:10px 0;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.sec:first-of-type{border-top:0}
+.sec .main{flex:1 1 260px}
+.sec .ttl{font-weight:700}
+.btn{border:0;background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:8px;font:inherit;font-weight:700;cursor:pointer}
+.btn.ghost{background:var(--accent-soft);color:var(--accent)}
+.btn.small{padding:4px 10px;font-size:13px;font-weight:600}
+.btn:disabled{opacity:.5;cursor:default}
+label.f{display:block;font-size:13px;color:var(--sub);margin-bottom:4px}
+input[type=date],input[type=number],input[type=password],input[type=text],select,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+textarea{min-height:56px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.check{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer}
+.check input{width:18px;height:18px}
+.probs{margin-top:8px}
+.prow{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;outline:none}
+.prow:focus{background:var(--accent-soft)}
+.prow .no{width:52px;font-weight:700;font-size:14px}
+.prow.untouched .no{color:var(--sub)}
+.lim{width:38px;height:34px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--sub);font:inherit;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.lim small{font-size:10px;font-weight:400;color:var(--sub)}
+.lim.o{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.lim.x{background:var(--ng-soft);color:var(--ng);border-color:transparent}
+.lim.t{background:var(--mid-soft);color:var(--mid);border-color:transparent}
+.res{margin-left:6px;min-width:28px;text-align:center;font-weight:700}
+.res.o{color:var(--ok)}.res.x{color:var(--ng)}.res.t{color:var(--mid)}
+.map{display:grid;grid-template-columns:52px repeat(10,1fr);gap:4px;align-items:center}
+.map .sub{font-size:13px;font-weight:700}
+.cell{height:30px;border-radius:6px;background:var(--none);border:2px solid transparent;cursor:pointer;font-size:11px;color:var(--sub);display:flex;align-items:center;justify-content:center}
+.cell.part{background:var(--part);color:var(--ink)}
+.cell.done{background:var(--done);color:#fff}
+.cell.late{border-color:var(--late)}
+.cell.blank{visibility:hidden}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px;background:var(--c);border:2px solid var(--b,transparent)}
+.bars{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:6px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:11px;color:var(--sub)}
+.bar i{display:block;width:100%;max-width:38px;background:var(--accent);border-radius:5px 5px 0 0;min-height:2px}
+.bar b{font-weight:600;color:var(--ink);font-size:11px}
+.loglist div{border-top:1px solid var(--line);padding:6px 0;display:flex;gap:8px;align-items:center;font-size:13px}
+.loglist div:first-child{border-top:0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20}
+.toast.on{opacity:1}
+.lock{max-width:420px;margin:60px auto}
+.hidden{display:none!important}
+.drawer{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:15;display:flex;justify-content:flex-end}
+.drawer .in{background:var(--panel);width:min(380px,100%);height:100%;padding:18px;overflow:auto}
+.kbd{font-family:ui-monospace,monospace;font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+@media (max-width:560px){nav{margin-left:0;width:100%}nav button{flex:1}.map{grid-template-columns:40px repeat(10,1fr)}.cell{height:26px}}
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+  <h1>社労士 進捗帳</h1><span class="sync" id="sync"></span>
+  <nav id="nav"><button data-v="today" class="on">今日</button><button data-v="rec">記録</button><button data-v="prog">進み具合</button></nav>
+  <button class="iconbtn" id="openSet" title="設定">⚙</button>
+</div></header>
+
+<div id="lock" class="lock hidden"><div class="card">
+  <h2>合言葉を入力</h2>
+  <p class="muted">記録はこの合言葉で暗号化して保存します。合言葉はこの端末に保存されます。忘れると記録は読めなくなるので、別の場所にも控えてください。</p>
+  <input type="password" id="passIn" autocomplete="current-password">
+  <div style="margin-top:10px"><button class="btn" id="passOk">開く</button></div>
+  <p class="muted" id="passMsg"></p>
+</div></div>
+
+<main id="app" class="hidden">
+<section id="v-today"></section>
+<section id="v-rec" class="hidden"></section>
+<section id="v-prog" class="hidden"></section>
+</main>
+
+<div id="set" class="drawer hidden"><div class="in">
+  <h2 style="margin-top:0">設定</h2>
+  <div class="card"><h2>書き出し</h2>
+    <p class="muted">週1回、学習フォルダの data フォルダに保存してください（チャットのClaudeが読みます）。</p>
+    <div class="row"><button class="btn small" id="expProb">演習記録CSV</button><button class="btn small" id="expTime">学習時間CSV</button></div></div>
+  <div class="card"><h2>データ</h2>
+    <div class="row"><button class="btn ghost small" id="reload">再読み込み</button><button class="btn ghost small" id="forget">この端末の合言葉を消す</button></div>
+    <p class="muted" id="modeNote"></p></div>
+  <div class="card"><h2>キーボード操作（問題の記録）</h2>
+    <p class="muted">問題の行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span>：肢A〜Eを ○→×→△ と切替／<span class="kbd">0</span>：解いた（全肢○）／<span class="kbd">↑</span><span class="kbd">↓</span>：行移動</p></div>
+  <button class="btn ghost" id="closeSet">閉じる</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+/* ===== 設定（Claude Codeが埋める） ===== */
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+const TABLE = "sharoushi_logs";
+const EXAM_DATE = "2027-08-22"; // 見込み。2027年4月の公示で確認
+/* ===================================== */
+const PLAN = [{"id":1,"s":"労基","ch":1,"k":1,"t":"労働基準法の基本理念等","lec":"2026-10中旬","p0":8,"p1":19,"pg":12,"q0":1,"q1":5,"d0":"2026-10-15","d1":"2026-10-15","rate":2},{"id":2,"s":"労基","ch":1,"k":2,"t":"労働契約等","lec":"2026-10中旬","p0":20,"p1":36,"pg":17,"q0":6,"q1":13,"d0":"2026-10-15","d1":"2026-10-16","rate":2},{"id":3,"s":"労基","ch":1,"k":3,"t":"賃金","lec":"2026-10中旬","p0":37,"p1":48,"pg":12,"q0":14,"q1":20,"d0":"2026-10-16","d1":"2026-10-17","rate":2},{"id":4,"s":"労基","ch":1,"k":4,"t":"労働時間、休憩、休日","lec":"2026-10中旬","p0":49,"p1":59,"pg":11,"q0":21,"q1":23,"d0":"2026-10-17","d1":"2026-10-19","rate":2},{"id":5,"s":"労基","ch":1,"k":5,"t":"変形労働時間制","lec":"2026-10中旬","p0":60,"p1":69,"pg":10,"q0":24,"q1":28,"d0":"2026-10-19","d1":"2026-10-20","rate":2},{"id":6,"s":"労基","ch":1,"k":6,"t":"時間外労働・休日労働","lec":"2026-10中旬","p0":70,"p1":82,"pg":13,"q0":29,"q1":33,"d0":"2026-10-20","d1":"2026-10-21","rate":2},{"id":7,"s":"労基","ch":1,"k":7,"t":"みなし労働時間制","lec":"2026-10中旬","p0":83,"p1":88,"pg":6,"q0":34,"q1":36,"d0":"2026-10-21","d1":"2026-10-21","rate":2},{"id":8,"s":"労基","ch":1,"k":8,"t":"年次有給休暇","lec":"2026-10中旬","p0":89,"p1":96,"pg":8,"q0":37,"q1":39,"d0":"2026-10-21","d1":"2026-10-22","rate":2},{"id":9,"s":"労基","ch":1,"k":9,"t":"年少者、妊産婦等","lec":"2026-10中旬","p0":97,"p1":107,"pg":11,"q0":40,"q1":45,"d0":"2026-10-22","d1":"2026-10-22","rate":2},{"id":10,"s":"労基","ch":1,"k":10,"t":"就業規則、監督等その他","lec":"2026-10中旬","p0":108,"p1":121,"pg":14,"q0":46,"q1":52,"d0":"2026-10-23","d1":"2026-10-23","rate":2},{"id":11,"s":"労災","ch":3,"k":1,"t":"目的等","lec":"2026-10下旬","p0":214,"p1":217,"pg":4,"q0":1,"q1":3,"d0":"2026-10-24","d1":"2026-10-24","rate":4.5},{"id":12,"s":"労災","ch":3,"k":2,"t":"業務災害、複数業務要因災害及び通勤災害","lec":"2026-10下旬","p0":218,"p1":227,"pg":10,"q0":4,"q1":6,"d0":"2026-10-24","d1":"2026-10-26","rate":4.5},{"id":13,"s":"労災","ch":3,"k":3,"t":"給付基礎日額","lec":"2026-10下旬","p0":228,"p1":234,"pg":7,"q0":7,"q1":8,"d0":"2026-10-26","d1":"2026-10-27","rate":4.5},{"id":14,"s":"労災","ch":3,"k":4,"t":"保険給付Ⅰ","lec":"2026-10下旬","p0":235,"p1":245,"pg":11,"q0":9,"q1":15,"d0":"2026-10-27","d1":"2026-10-28","rate":4.5},{"id":15,"s":"労災","ch":3,"k":5,"t":"保険給付Ⅱ","lec":"2026-10下旬","p0":246,"p1":254,"pg":9,"q0":16,"q1":20,"d0":"2026-10-28","d1":"2026-10-29","rate":4.5},{"id":16,"s":"労災","ch":3,"k":6,"t":"保険給付Ⅲ","lec":"2026-10下旬","p0":255,"p1":264,"pg":10,"q0":21,"q1":28,"d0":"2026-10-29","d1":"2026-10-30","rate":4.5},{"id":17,"s":"労災","ch":3,"k":7,"t":"通則等","lec":"2026-10下旬","p0":265,"p1":277,"pg":13,"q0":29,"q1":38,"d0":"2026-10-30","d1":"2026-10-31","rate":4.5},{"id":18,"s":"労災","ch":3,"k":8,"t":"社会復帰促進等事業","lec":"2026-10下旬","p0":278,"p1":285,"pg":8,"q0":39,"q1":41,"d0":"2026-10-31","d1":"2026-11-02","rate":4.5},{"id":19,"s":"労災","ch":3,"k":9,"t":"特別加入","lec":"2026-10下旬","p0":286,"p1":292,"pg":7,"q0":42,"q1":43,"d0":"2026-11-02","d1":"2026-11-03","rate":4.5},{"id":20,"s":"労災","ch":3,"k":10,"t":"不服申立て、雑則その他","lec":"2026-10下旬","p0":293,"p1":299,"pg":7,"q0":44,"q1":46,"d0":"2026-11-03","d1":"2026-11-03","rate":4.5},{"id":21,"s":"安衛","ch":2,"k":1,"t":"目的等","lec":"2026-11上旬","p0":128,"p1":130,"pg":3,"q0":1,"q1":2,"d0":"2026-11-04","d1":"2026-11-04","rate":4.5},{"id":22,"s":"安衛","ch":2,"k":2,"t":"安全衛生管理体制Ⅰ","lec":"2026-11上旬","p0":131,"p1":144,"pg":14,"q0":3,"q1":9,"d0":"2026-11-04","d1":"2026-11-05","rate":4.5},{"id":23,"s":"安衛","ch":2,"k":3,"t":"安全衛生管理体制Ⅱ","lec":"2026-11上旬","p0":145,"p1":153,"pg":9,"q0":10,"q1":11,"d0":"2026-11-05","d1":"2026-11-06","rate":4.5},{"id":24,"s":"安衛","ch":2,"k":4,"t":"事業者等の講ずべき措置等","lec":"2026-11上旬","p0":154,"p1":158,"pg":5,"q0":12,"q1":13,"d0":"2026-11-06","d1":"2026-11-07","rate":4.5},{"id":25,"s":"安衛","ch":2,"k":5,"t":"機械等並びに危険物及び有害物に関する規制","lec":"2026-11上旬","p0":159,"p1":173,"pg":15,"q0":14,"q1":15,"d0":"2026-11-07","d1":"2026-11-07","rate":4.5},{"id":26,"s":"安衛","ch":2,"k":6,"t":"就業制限、安全衛生教育","lec":"2026-11上旬","p0":174,"p1":177,"pg":4,"q0":16,"q1":17,"d0":"2026-11-07","d1":"2026-11-09","rate":4.5},{"id":27,"s":"安衛","ch":2,"k":7,"t":"作業環境測定、作業の管理等","lec":"2026-11上旬","p0":178,"p1":180,"pg":3,"q0":18,"q1":18,"d0":"2026-11-09","d1":"2026-11-09","rate":4.5},{"id":28,"s":"安衛","ch":2,"k":8,"t":"健康診断","lec":"2026-11上旬","p0":181,"p1":188,"pg":8,"q0":19,"q1":21,"d0":"2026-11-09","d1":"2026-11-10","rate":4.5},{"id":29,"s":"安衛","ch":2,"k":9,"t":"面接指導等","lec":"2026-11上旬","p0":189,"p1":195,"pg":7,"q0":22,"q1":23,"d0":"2026-11-10","d1":"2026-11-11","rate":4.5},{"id":30,"s":"安衛","ch":2,"k":10,"t":"監督等その他","lec":"2026-11上旬","p0":196,"p1":207,"pg":12,"q0":24,"q1":25,"d0":"2026-11-11","d1":"2026-11-11","rate":4.5},{"id":31,"s":"徴収","ch":5,"k":1,"t":"総則、保険関係の成立及び消滅等","lec":"2026-11上旬","p0":422,"p1":427,"pg":6,"q0":1,"q1":3,"d0":"2026-11-12","d1":"2026-11-12","rate":4.5},{"id":32,"s":"徴収","ch":5,"k":2,"t":"事業の一括","lec":"2026-11上旬","p0":428,"p1":432,"pg":5,"q0":4,"q1":6,"d0":"2026-11-12","d1":"2026-11-13","rate":4.5},{"id":33,"s":"徴収","ch":5,"k":3,"t":"労働保険料の種類等","lec":"2026-11上旬","p0":433,"p1":440,"pg":8,"q0":7,"q1":8,"d0":"2026-11-13","d1":"2026-11-14","rate":4.5},{"id":34,"s":"徴収","ch":5,"k":4,"t":"概算保険料","lec":"2026-11上旬","p0":441,"p1":450,"pg":10,"q0":9,"q1":14,"d0":"2026-11-14","d1":"2026-11-16","rate":4.5},{"id":35,"s":"徴収","ch":5,"k":5,"t":"確定保険料等","lec":"2026-11上旬","p0":451,"p1":455,"pg":5,"q0":15,"q1":18,"d0":"2026-11-16","d1":"2026-11-16","rate":4.5},{"id":36,"s":"徴収","ch":5,"k":6,"t":"メリット制","lec":"2026-11上旬","p0":456,"p1":460,"pg":5,"q0":19,"q1":20,"d0":"2026-11-16","d1":"2026-11-17","rate":4.5},{"id":37,"s":"徴収","ch":5,"k":7,"t":"印紙保険料","lec":"2026-11上旬","p0":461,"p1":465,"pg":5,"q0":21,"q1":24,"d0":"2026-11-17","d1":"2026-11-18","rate":4.5},{"id":38,"s":"徴収","ch":5,"k":8,"t":"特例納付保険料","lec":"2026-11上旬","p0":466,"p1":468,"pg":3,"q0":25,"q1":25,"d0":"2026-11-18","d1":"2026-11-18","rate":4.5},{"id":39,"s":"徴収","ch":5,"k":9,"t":"督促等、不服申立て、雑則その他","lec":"2026-11上旬","p0":469,"p1":475,"pg":7,"q0":26,"q1":27,"d0":"2026-11-18","d1":"2026-11-19","rate":4.5},{"id":40,"s":"徴収","ch":5,"k":10,"t":"労働保険事務組合","lec":"2026-11上旬","p0":476,"p1":483,"pg":8,"q0":28,"q1":30,"d0":"2026-11-19","d1":"2026-11-19","rate":4.5},{"id":41,"s":"雇用","ch":4,"k":1,"t":"目的等","lec":"2026-11中旬","p0":308,"p1":310,"pg":3,"q0":1,"q1":1,"d0":"2026-11-20","d1":"2026-11-20","rate":4.5},{"id":42,"s":"雇用","ch":4,"k":2,"t":"被保険者等","lec":"2026-11中旬","p0":311,"p1":322,"pg":12,"q0":2,"q1":9,"d0":"2026-11-20","d1":"2026-11-21","rate":4.5},{"id":43,"s":"雇用","ch":4,"k":3,"t":"失業等給付、求職者給付Ⅰ","lec":"2026-11中旬","p0":323,"p1":346,"pg":24,"q0":10,"q1":19,"d0":"2026-11-21","d1":"2026-11-24","rate":4.5},{"id":44,"s":"雇用","ch":4,"k":4,"t":"求職者給付Ⅱ","lec":"2026-11中旬","p0":347,"p1":353,"pg":7,"q0":20,"q1":22,"d0":"2026-11-24","d1":"2026-11-25","rate":4.5},{"id":45,"s":"雇用","ch":4,"k":5,"t":"求職者給付Ⅲ","lec":"2026-11中旬","p0":354,"p1":356,"pg":3,"q0":23,"q1":24,"d0":"2026-11-25","d1":"2026-11-25","rate":4.5},{"id":46,"s":"雇用","ch":4,"k":6,"t":"求職者給付Ⅳ","lec":"2026-11中旬","p0":357,"p1":360,"pg":4,"q0":25,"q1":26,"d0":"2026-11-25","d1":"2026-11-26","rate":4.5},{"id":47,"s":"雇用","ch":4,"k":7,"t":"就職促進給付","lec":"2026-11中旬","p0":361,"p1":371,"pg":11,"q0":27,"q1":30,"d0":"2026-11-26","d1":"2026-11-27","rate":4.5},{"id":48,"s":"雇用","ch":4,"k":8,"t":"教育訓練給付","lec":"2026-11中旬","p0":372,"p1":383,"pg":12,"q0":31,"q1":33,"d0":"2026-11-27","d1":"2026-11-28","rate":4.5},{"id":49,"s":"雇用","ch":4,"k":9,"t":"雇用継続給付、育児休業等給付","lec":"2026-11中旬","p0":384,"p1":401,"pg":18,"q0":34,"q1":39,"d0":"2026-11-28","d1":"2026-11-30","rate":4.5},{"id":50,"s":"雇用","ch":4,"k":10,"t":"通則、不服申立て、雑則その他","lec":"2026-11中旬","p0":402,"p1":415,"pg":14,"q0":40,"q1":46,"d0":"2026-11-30","d1":"2026-12-01","rate":4.5},{"id":51,"s":"労一","ch":9,"k":1,"t":"集団的労使関係法","lec":"2026-12上旬","p0":8,"p1":14,"pg":7,"q0":1,"q1":4,"d0":"2026-12-02","d1":"2026-12-02","rate":4.5},{"id":52,"s":"労一","ch":9,"k":2,"t":"個別労働関係法","lec":"2026-12上旬","p0":15,"p1":59,"pg":45,"q0":5,"q1":17,"d0":"2026-12-02","d1":"2026-12-07","rate":4.5},{"id":53,"s":"労一","ch":9,"k":3,"t":"労働市場法","lec":"2026-12上旬","p0":60,"p1":99,"pg":40,"q0":18,"q1":26,"d0":"2026-12-07","d1":"2026-12-09","rate":4.5},{"id":54,"s":"労一","ch":9,"k":4,"t":"労務管理","lec":"2026-12上旬","p0":100,"p1":111,"pg":12,"q0":27,"q1":30,"d0":"2026-12-09","d1":"2026-12-10","rate":4.5},{"id":55,"s":"労一","ch":9,"k":5,"t":"労働経済、労働統計","lec":"2026-12上旬","p0":112,"p1":123,"pg":12,"q0":31,"q1":35,"d0":"2026-12-10","d1":"2026-12-11","rate":4.5},{"id":56,"s":"健保","ch":6,"k":1,"t":"目的等、保険者","lec":"2026-12中旬","p0":8,"p1":19,"pg":12,"q0":1,"q1":5,"d0":"2026-12-12","d1":"2026-12-14","rate":4.5},{"id":57,"s":"健保","ch":6,"k":2,"t":"適用事業所、被保険者等","lec":"2026-12中旬","p0":20,"p1":40,"pg":21,"q0":6,"q1":15,"d0":"2026-12-14","d1":"2026-12-15","rate":4.5},{"id":58,"s":"健保","ch":6,"k":3,"t":"保険医療機関等","lec":"2026-12中旬","p0":41,"p1":46,"pg":6,"q0":16,"q1":17,"d0":"2026-12-15","d1":"2026-12-16","rate":4.5},{"id":59,"s":"健保","ch":6,"k":4,"t":"標準報酬","lec":"2026-12中旬","p0":47,"p1":61,"pg":15,"q0":18,"q1":24,"d0":"2026-12-16","d1":"2026-12-17","rate":4.5},{"id":60,"s":"健保","ch":6,"k":5,"t":"保険給付Ⅰ","lec":"2026-12中旬","p0":62,"p1":86,"pg":25,"q0":25,"q1":32,"d0":"2026-12-17","d1":"2026-12-19","rate":4.5},{"id":61,"s":"健保","ch":6,"k":6,"t":"保険給付Ⅱ","lec":"2026-12中旬","p0":87,"p1":102,"pg":16,"q0":33,"q1":39,"d0":"2026-12-19","d1":"2026-12-22","rate":4.5},{"id":62,"s":"健保","ch":6,"k":7,"t":"費用の負担等","lec":"2027-01中旬","p0":103,"p1":121,"pg":19,"q0":40,"q1":46,"d0":"2026-12-22","d1":"2026-12-23","rate":4.5},{"id":63,"s":"健保","ch":6,"k":8,"t":"日雇特例被保険者に関する保険給付等","lec":"2027-01中旬","p0":122,"p1":136,"pg":15,"q0":47,"q1":49,"d0":"2026-12-23","d1":"2026-12-24","rate":4.5},{"id":64,"s":"健保","ch":6,"k":9,"t":"通則等","lec":"2027-01中旬","p0":137,"p1":143,"pg":7,"q0":50,"q1":52,"d0":"2026-12-24","d1":"2026-12-25","rate":4.5},{"id":65,"s":"健保","ch":6,"k":10,"t":"保健事業及び福祉事業、不服申立て、雑則等","lec":"2027-01中旬","p0":144,"p1":151,"pg":8,"q0":53,"q1":54,"d0":"2026-12-25","d1":"2026-12-25","rate":4.5},{"id":66,"s":"国年","ch":7,"k":1,"t":"目的等","lec":"2027-01中旬","p0":158,"p1":160,"pg":3,"q0":1,"q1":1,"d0":"2026-12-26","d1":"2026-12-26","rate":2},{"id":67,"s":"国年","ch":7,"k":2,"t":"被保険者等","lec":"2027-01中旬","p0":161,"p1":175,"pg":15,"q0":2,"q1":8,"d0":"2026-12-26","d1":"2026-12-28","rate":2},{"id":68,"s":"国年","ch":7,"k":3,"t":"費用の負担等","lec":"2027-01中旬","p0":176,"p1":196,"pg":21,"q0":9,"q1":17,"d0":"2026-12-28","d1":"2026-12-29","rate":2},{"id":69,"s":"国年","ch":7,"k":4,"t":"老齢基礎年金","lec":"2027-01下旬","p0":197,"p1":216,"pg":20,"q0":18,"q1":25,"d0":"2026-12-29","d1":"2026-12-31","rate":2},{"id":70,"s":"国年","ch":7,"k":5,"t":"障害基礎年金","lec":"2027-01下旬","p0":217,"p1":230,"pg":14,"q0":26,"q1":32,"d0":"2026-12-31","d1":"2027-01-01","rate":2},{"id":71,"s":"国年","ch":7,"k":6,"t":"遺族基礎年金","lec":"2027-01下旬","p0":231,"p1":242,"pg":12,"q0":33,"q1":39,"d0":"2027-01-01","d1":"2027-01-02","rate":2},{"id":72,"s":"国年","ch":7,"k":7,"t":"独自給付等","lec":"2027-01下旬","p0":243,"p1":250,"pg":8,"q0":40,"q1":46,"d0":"2027-01-02","d1":"2027-01-04","rate":2},{"id":73,"s":"国年","ch":7,"k":8,"t":"年金額の調整等","lec":"2027-01下旬","p0":251,"p1":255,"pg":5,"q0":47,"q1":47,"d0":"2027-01-04","d1":"2027-01-04","rate":2},{"id":74,"s":"国年","ch":7,"k":9,"t":"通則等、不服申立て、雑則等","lec":"2027-01下旬","p0":256,"p1":267,"pg":12,"q0":48,"q1":51,"d0":"2027-01-04","d1":"2027-01-05","rate":2},{"id":75,"s":"国年","ch":7,"k":10,"t":"国民年金基金等","lec":"2027-01下旬","p0":268,"p1":277,"pg":10,"q0":52,"q1":54,"d0":"2027-01-05","d1":"2027-01-05","rate":2},{"id":76,"s":"厚年","ch":8,"k":1,"t":"目的等","lec":"2027-01下旬","p0":284,"p1":288,"pg":5,"q0":1,"q1":2,"d0":"2027-01-06","d1":"2027-01-06","rate":4.5},{"id":77,"s":"厚年","ch":8,"k":2,"t":"被保険者等","lec":"2027-01下旬","p0":289,"p1":306,"pg":18,"q0":3,"q1":9,"d0":"2027-01-06","d1":"2027-01-08","rate":4.5},{"id":78,"s":"厚年","ch":8,"k":3,"t":"標準報酬","lec":"2027-02上旬","p0":307,"p1":313,"pg":7,"q0":10,"q1":13,"d0":"2027-01-08","d1":"2027-01-08","rate":4.5},{"id":79,"s":"厚年","ch":8,"k":4,"t":"本来の老齢厚生年金","lec":"2027-02上旬","p0":314,"p1":329,"pg":16,"q0":14,"q1":21,"d0":"2027-01-08","d1":"2027-01-11","rate":4.5},{"id":80,"s":"厚年","ch":8,"k":5,"t":"特別支給の老齢厚生年金等","lec":"2027-02上旬","p0":330,"p1":344,"pg":15,"q0":22,"q1":28,"d0":"2027-01-11","d1":"2027-01-12","rate":4.5},{"id":81,"s":"厚年","ch":8,"k":6,"t":"障害厚生年金等","lec":"2027-02上旬","p0":345,"p1":356,"pg":12,"q0":29,"q1":36,"d0":"2027-01-12","d1":"2027-01-14","rate":4.5},{"id":82,"s":"厚年","ch":8,"k":7,"t":"遺族厚生年金等","lec":"2027-02上旬","p0":357,"p1":371,"pg":15,"q0":37,"q1":44,"d0":"2027-01-14","d1":"2027-01-15","rate":4.5},{"id":83,"s":"厚年","ch":8,"k":8,"t":"離婚時における標準報酬の分割","lec":"2027-02上旬","p0":372,"p1":378,"pg":7,"q0":45,"q1":46,"d0":"2027-01-15","d1":"2027-01-16","rate":4.5},{"id":84,"s":"厚年","ch":8,"k":9,"t":"年金額の調整等、通則等","lec":"2027-02上旬","p0":379,"p1":389,"pg":11,"q0":47,"q1":48,"d0":"2027-01-16","d1":"2027-01-18","rate":4.5},{"id":85,"s":"厚年","ch":8,"k":10,"t":"費用の負担等、不服申立て、雑則等","lec":"2027-02上旬","p0":390,"p1":403,"pg":14,"q0":49,"q1":51,"d0":"2027-01-18","d1":"2027-01-18","rate":4.5},{"id":86,"s":"社一","ch":10,"k":1,"t":"社会保険法規等","lec":"2027-02中旬","p0":128,"p1":164,"pg":37,"q0":1,"q1":14,"d0":"2027-01-19","d1":"2027-01-21","rate":4.5},{"id":87,"s":"社一","ch":10,"k":2,"t":"企業年金制度、社会保険労務士法","lec":"2027-02中旬","p0":165,"p1":195,"pg":31,"q0":15,"q1":21,"d0":"2027-01-21","d1":"2027-01-23","rate":4.5},{"id":88,"s":"社一","ch":10,"k":3,"t":"社会保障制度、社会保障の沿革等","lec":"2027-02中旬","p0":196,"p1":207,"pg":12,"q0":22,"q1":27,"d0":"2027-01-23","d1":"2027-01-25","rate":4.5}];
+const SALT = "sharoushi-tracker-v1";
+const SUBJ = ["労基","労災","安衛","徴収","雇用","労一","健保","国年","厚年","社一"];
+const LIM = ["A","B","C","D","E"];
+const CONFIGURED = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+const $ = s => document.querySelector(s);
+const ls = { get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}, del(k){try{localStorage.removeItem(k)}catch(e){}} };
+const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),1800); };
+const pad = n => String(n).padStart(2,"0");
+const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const todayIso = () => iso(new Date());
+const WD = ["日","月","火","水","木","金","土"];
+const jdate = s => { const d=parse(s); return (d.getMonth()+1)+"月"+d.getDate()+"日（"+WD[d.getDay()]+"）"; };
+const fmtMin = m => { m=Math.round(m||0); const h=Math.floor(m/60), r=m%60; return h? (h+"時間"+(r? r+"分":"")) : r+"分"; };
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ===== 暗号化 ===== */
+let KEY=null;
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = s => Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function deriveKey(pass){
+  const e=new TextEncoder();
+  const base=await crypto.subtle.importKey("raw",e.encode(pass),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:e.encode(SALT),iterations:250000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+async function enc(obj){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},KEY,new TextEncoder().encode(JSON.stringify(obj)));
+  return "v1."+b64(iv)+"."+b64(ct);
+}
+async function dec(s){
+  const [v,iv,ct]=s.split(".");
+  if(v!=="v1") throw 0;
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(iv)},KEY,unb64(ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+/* ===== 保存先 ===== */
+let sb=null, EVENTS=[];
+const store = {
+  async load(){
+    if(!CONFIGURED){ try{return JSON.parse(ls.get("sst_demo")||"[]")}catch(e){return []} }
+    let all=[], from=0;
+    for(;;){
+      const {data,error}=await sb.from(TABLE).select("id,payload").order("id").range(from,from+999);
+      if(error) throw error;
+      all=all.concat(data); if(data.length<1000) break; from+=1000;
+    }
+    const out=[]; let bad=0;
+    for(const r of all){ try{ out.push(await dec(r.payload)); }catch(e){ bad++; } }
+    if(all.length && !out.length) throw new Error("WRONG_PASS");
+    return out;
+  },
+  async add(ev){
+    if(!CONFIGURED){ const a=await this.load(); a.push(ev); ls.set("sst_demo",JSON.stringify(a)); return; }
+    const {error}=await sb.from(TABLE).insert({payload:await enc(ev)});
+    if(error) throw error;
+  }
+};
+async function refresh(){
+  $("#sync").textContent="読み込み中…";
+  try{ EVENTS=(await store.load()).sort((a,b)=>a.ts-b.ts); $("#sync").textContent=CONFIGURED?"同期済み":"お試しモード（この端末のみ）"; }
+  catch(e){
+    if(e.message==="WRONG_PASS"){ ls.del("sst_pass"); KEY=null; showLock("合言葉が違う可能性があります。"); return false; }
+    $("#sync").textContent="読み込み失敗"; toast("読み込みに失敗しました"); console.error(e);
+  }
+  derive(); renderAll(); return true;
+}
+
+/* ===== 状態の計算 ===== */
+let S=null;
+function derive(){
+  const voided=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target));
+  const logs=EVENTS.filter(e=>e.t==="day" && !voided.has(e.id));
+  const minByDate={}; const sec={}; // key `${round}:${id}`
+  for(const e of logs){
+    minByDate[e.date]=(minByDate[e.date]||0)+(+e.minutes||0);
+    for(const it of e.items||[]){
+      const k=(it.round||1)+":"+it.sec;
+      const s=sec[k]||(sec[k]={read:null,lecture:null,marks:{}});
+      if(it.read) s.read=e.date;
+      if(it.lecture) s.lecture=e.date;
+      for(const [n,m] of Object.entries(it.probs||{})) s.marks[n]={...m,date:e.date};
+    }
+  }
+  S={logs,minByDate,sec};
+}
+const secState=(id,round=1)=>S.sec[round+":"+id]||{read:null,lecture:null,marks:{}};
+function judge(m){
+  if(!m) return null;
+  if(m.s) return m.s;
+  const c=m.c||"";
+  if(c.includes("x")) return "x";
+  if(c.includes("t")) return "t";
+  return "o";
+}
+const qn=p=>p.q1-p.q0+1;
+const W=p=>({read:p.pg*p.rate, lec:18, prob:qn(p)*10});
+function frac(p,round=1){
+  const st=secState(p.id,round), w=W(p), tot=w.read+w.lec+w.prob;
+  const done=Object.keys(st.marks).length;
+  return ((st.read?w.read:0)+(st.lecture?w.lec:0)+Math.min(done,qn(p))/qn(p)*w.prob)/tot;
+}
+function status(p,round=1){
+  const st=secState(p.id,round), done=Object.keys(st.marks).length;
+  if(st.read && done>=qn(p)) return "done";
+  if(st.read || done || st.lecture) return "part";
+  return "none";
+}
+function lecDate(p){ const m=p.lec.match(/(\d{4})-(\d{2})(上旬|中旬|下旬)/); if(!m) return null; return m[1]+"-"+m[2]+"-"+({上旬:"01",中旬:"11",下旬:"21"}[m[3]]); }
+function studyDaysBetween(a,b){ // a<b, 日曜を除く日数
+  let n=0, d=parse(a); const e=parse(b); const sgn=d<=e?1:-1;
+  if(sgn<0){ return -studyDaysBetween(b,a); }
+  while(d<e){ d.setDate(d.getDate()+1); if(d.getDay()!==0) n++; } return n;
+}
+function plannedFrac(p,dateIso){
+  if(dateIso<p.d0) return 0; if(dateIso>=p.d1) return 1;
+  const all=studyDaysBetween(p.d0,p.d1)+1, el=studyDaysBetween(p.d0,dateIso)+1;
+  return el/all;
+}
+function aheadDays(){
+  const tw=p=>{const w=W(p);return w.read+w.lec+w.prob};
+  const actual=PLAN.reduce((a,p)=>a+tw(p)*frac(p),0);
+  const t=todayIso();
+  const plannedAt=d=>PLAN.reduce((a,p)=>a+tw(p)*plannedFrac(p,d),0);
+  // 実績に相当する計画日を探す
+  let d=parse(PLAN[0].d0); d.setDate(d.getDate()-1);
+  const end=parse(PLAN[PLAN.length-1].d1); let match=iso(d);
+  while(d<=end){ const s=iso(d); if(plannedAt(s)<=actual+1e-6) match=s; else break; d.setDate(d.getDate()+1); }
+  const total=PLAN.reduce((a,p)=>a+tw(p),0);
+  const prev=parse(t); do{ prev.setDate(prev.getDate()-1); }while(prev.getDay()===0);
+  return {days:studyDaysBetween(iso(prev),match), pct:actual/total, plannedPct:plannedAt(t)/total};
+}
+
+/* ===== 画面 ===== */
+let VIEW="today", REC={sec:null,round:1,simple:false,draft:null,form:{date:null,minutes:"",memo:""}};
+function show(v){ VIEW=v; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
+  for(const id of ["today","rec","prog"]) $("#v-"+id).classList.toggle("hidden",id!==v); renderAll(); }
+function renderAll(){ if(!S) return; if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); }
+
+function secLine(p,withBtn=true){
+  const st=secState(p.id), done=Object.keys(st.marks).length, ld=lecDate(p), t=todayIso();
+  const lecTxt = st.lecture? '<span class="chip ok">講義 済</span>' : (ld && ld<=t ? '<span class="chip">講義 配信済み（目安）</span>' : '<span class="chip">講義 '+esc(p.lec.slice(5))+'配信予定</span>');
+  return `<div class="sec"><div class="main">
+    <div class="ttl">${esc(p.s)} Sec${p.k}　${esc(p.t)}</div>
+    <div class="muted">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}${p.q1>p.q0?"〜"+p.q1:""}（${qn(p)}問）／予定 ${jdate(p.d0).replace(/（.）/,"")}${p.d1!==p.d0?"〜"+jdate(p.d1).replace(/（.）/,""):""}</div>
+    <div style="margin-top:4px"><span class="chip ${st.read?"ok":""}">教科書 ${st.read?"済":"未"}</span>${lecTxt}<span class="chip ${done>=qn(p)?"ok":done?"mid":""}">問題 ${done}/${qn(p)}</span></div>
+  </div>${withBtn?`<button class="btn small" data-go="${p.id}">記録する</button>`:""}</div>`;
+}
+function renderToday(){
+  const t=todayIso(), d=parse(t), el=$("#v-today");
+  const todays=PLAN.filter(p=>p.d0<=t && t<=p.d1);
+  const late=PLAN.filter(p=>p.d1<t && status(p)!=="done");
+  const toExam=Math.round((parse(EXAM_DATE)-d)/864e5);
+  const a=aheadDays();
+  let h=`<div class="card"><div class="row" style="justify-content:space-between">
+    <div><div class="big">${jdate(t)}</div><div class="muted">試験まであと${toExam}日（${EXAM_DATE.slice(5).replace("-","/")}見込み）</div></div>
+    <div class="row"><div class="stat"><div class="lbl">今日の学習時間</div><div class="val">${fmtMin(S.minByDate[t])}</div></div>
+    <div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div></div></div></div></div>`;
+  h+=`<div class="card"><h2>今日の範囲</h2>`;
+  if(d.getDay()===0 && !todays.length) h+=`<p>今日は予備日です。遅れている範囲や復習に使ってください。</p>`;
+  else if(!todays.length) h+=`<p class="muted">今日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
+  else{ const o=todays.find(p=>p.d0===t && p.k===1 && PLAN.find(q=>q.s===p.s).id===p.id); if(o) h+=`<p class="muted">${esc(o.s)}の初日です。オリエンテーションも読んでください。</p>`;
+    h+=todays.map(p=>secLine(p)).join(""); }
+  h+=`</div>`;
+  if(late.length) h+=`<div class="card"><h2>予定日を過ぎて未完了 <span class="chip ng">${late.length}</span></h2>${late.slice(0,6).map(p=>secLine(p)).join("")}${late.length>6?`<p class="muted">ほか${late.length-6}件は「進み具合」で確認できます。</p>`:""}</div>`;
+  el.innerHTML=h;
+}
+
+function secOptions(sel){
+  return SUBJ.map(s=>`<optgroup label="${s}">`+PLAN.filter(p=>p.s===s).map(p=>`<option value="${p.id}" ${p.id==sel?"selected":""}>${s} Sec${p.k} ${esc(p.t)}</option>`).join("")+`</optgroup>`).join("");
+}
+function newDraft(id){
+  const p=PLAN.find(x=>x.id==id), st=secState(id,REC.round), marks={};
+  for(let n=p.q0;n<=p.q1;n++) if(st.marks[n]) marks[n]={...st.marks[n]};
+  return {sec:+id, read:false, lecture:false, marks, touched:new Set()};
+}
+function renderRec(){
+  const t=todayIso();
+  if(!REC.sec){ const p=PLAN.find(p=>p.d0<=t&&t<=p.d1 && status(p)!=="done")||PLAN.find(p=>status(p)!=="done")||PLAN[0]; REC.sec=p.id; }
+  if(!REC.draft || REC.draft.sec!==+REC.sec) REC.draft=newDraft(REC.sec);
+  const p=PLAN.find(x=>x.id==REC.sec), st=secState(p.id,REC.round), dr=REC.draft;
+  const date=REC.form.date||t;
+  let h=`<div class="card"><h2>記録</h2><div class="grid2">
+    <div><label class="f">日付</label><input type="date" id="rDate" value="${date}"></div>
+    <div><label class="f">周回</label><select id="rRound">${[1,2,3].map(r=>`<option value="${r}" ${r==REC.round?"selected":""}>${r}周目</option>`).join("")}</select></div>
+    <div style="grid-column:1/-1"><label class="f">Section</label><select id="rSec">${secOptions(p.id)}</select></div>
+    <div><label class="f">学習時間（分）※この記録で足す分</label><input type="number" id="rMin" min="0" step="5" inputmode="numeric" placeholder="例：120" value="${esc(REC.form.minutes)}"></div>
+  </div>
+  <div class="muted" style="margin-top:8px">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}〜${p.q1}／講義 ${esc(p.lec.slice(5))}配信</div>
+  <div class="row" style="margin-top:4px">
+    <label class="check"><input type="checkbox" id="rRead" ${dr.read?"checked":""}> 教科書を読んだ ${st.read?`<span class="chip ok">済 ${st.read.slice(5)}</span>`:""}</label>
+    <label class="check"><input type="checkbox" id="rLec" ${dr.lecture?"checked":""}> 講義を見た ${st.lecture?`<span class="chip ok">済 ${st.lecture.slice(5)}</span>`:""}</label>
+  </div></div>`;
+  h+=`<div class="card"><h2>問題 <span class="muted" style="font-weight:400">間違えた肢は×、正解したが自信がない肢は△</span></h2>
+    <div class="row"><button class="btn ghost small" id="allDone">未記録の問題を「解いた（全肢○）」にする</button>
+    <label class="check"><input type="checkbox" id="rSimple" ${REC.simple?"checked":""}> 簡易入力（問題ごとに○△×）</label></div>
+    <div class="probs" id="probs">`;
+  for(let n=p.q0;n<=p.q1;n++){
+    const m=dr.marks[n], r=judge(m);
+    h+=`<div class="prow ${m?"":"untouched"}" tabindex="0" data-n="${n}"><span class="no">問${n}</span>`;
+    if(REC.simple){
+      h+=`<button class="lim ${m?(m.s||judge(m)):""}" data-simple="${n}" style="width:64px">${m?({o:"○",x:"×",t:"△"}[m.s||judge(m)]):"未"}</button>`;
+    } else {
+      const c=m&&m.c? m.c : (m&&m.s? null : null);
+      LIM.forEach((L,i)=>{ const v=c?c[i]:(m&&m.s?null:null); h+=`<button class="lim ${v||""}" data-n="${n}" data-i="${i}"><small>${L}</small>${v?({o:"○",x:"×",t:"△"}[v]):"・"}</button>`; });
+      if(m&&m.s) h+=`<span class="muted">簡易：${({o:"○",x:"×",t:"△"}[m.s])}</span>`;
+    }
+    h+=`<span class="res ${r||""}">${r?({o:"○",x:"×",t:"△"}[r]):""}</span></div>`;
+  }
+  h+=`</div><p class="muted">行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span> で肢を切替、<span class="kbd">0</span> で「解いた」。</p></div>`;
+  h+=`<div class="card"><label class="f">メモ（任意）</label><textarea id="rMemo" placeholder="気づいたこと、弱点ノートに回したい論点など">${esc(REC.form.memo)}</textarea>
+    <div style="margin-top:10px" class="row"><button class="btn" id="save">保存</button><span class="muted" id="dirty"></span></div></div>`;
+  const dl=S.logs.filter(e=>e.date===date);
+  h+=`<div class="card"><h2>${jdate(date)}の記録</h2><div class="loglist">${dl.length?dl.map(e=>`<div><span>${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":"")+(it.lecture?" 講義":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):`<p class="muted">まだ記録はありません。</p>`}</div></div>`;
+  $("#v-rec").innerHTML=h;
+  updDirty();
+}
+function updDirty(){ const n=REC.draft?REC.draft.touched.size:0; const el=$("#dirty"); if(el) el.textContent=n?`未保存の問題 ${n}問`:""; }
+function cycleLim(n,i){
+  const p=PLAN.find(x=>x.id==REC.sec), dr=REC.draft;
+  let m=dr.marks[n];
+  let c=(m&&m.c)? m.c.split("") : ["o","o","o","o","o"];
+  if(m&&m.c){ c[i]={o:"x",x:"t",t:"o"}[c[i]]; } else { c[i]="x"; }
+  dr.marks[n]={c:c.join("")}; dr.touched.add(n);
+}
+function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); }
+function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n);} }
+async function save(){
+  const dr=REC.draft, date=REC.form.date||todayIso();
+  const minutes=Math.max(0,parseInt($("#rMin").value||"0",10)||0);
+  const read=$("#rRead").checked, lecture=$("#rLec").checked, memo=$("#rMemo").value.trim();
+  const probs={}; for(const n of dr.touched) probs[n]={...dr.marks[n]};
+  if(!minutes && !read && !lecture && !Object.keys(probs).length && !memo){ toast("記録する内容がありません"); return; }
+  const ev={t:"day",id:uid(),ts:Date.now(),date,minutes,memo,items:[{sec:dr.sec,round:REC.round,read,lecture,probs}]};
+  $("#save").disabled=true;
+  try{ await store.add(ev); EVENTS.push(ev); derive(); REC.draft=null; REC.form.minutes=""; REC.form.memo=""; toast("保存しました"); renderRec(); }
+  catch(e){ console.error(e); toast("保存に失敗しました"); $("#save").disabled=false; }
+}
+async function voidEv(id){
+  if(!confirm("この記録を取り消しますか？（取消の記録が追加されます）")) return;
+  const ev={t:"void",id:uid(),ts:Date.now(),target:id};
+  try{ await store.add(ev); EVENTS.push(ev); derive(); REC.draft=null; toast("取り消しました"); renderRec(); }catch(e){ toast("取消に失敗しました"); }
+}
+
+function weekStart(d){ const x=new Date(d); const w=(x.getDay()+6)%7; x.setDate(x.getDate()-w); return x; }
+function renderProg(){
+  const t=todayIso(), a=aheadDays(), round=REC.round;
+  const ws=iso(weekStart(parse(t))), ms=t.slice(0,8)+"01";
+  let wk=0, mo=0, all=0;
+  for(const [d,m] of Object.entries(S.minByDate)){ all+=m; if(d>=ws&&d<=t) wk+=m; if(d>=ms&&d<=t) mo+=m; }
+  const doneN=PLAN.filter(p=>status(p,round)==="done").length;
+  let h=`<div class="card"><h2>1周目の進み具合</h2><div class="row">
+    <div class="stat"><div class="lbl">進捗（作業量ベース）</div><div class="val">${Math.round(a.pct*100)}%</div><div class="muted">今日時点の予定 ${Math.round(a.plannedPct*100)}%</div></div>
+    <div class="stat"><div class="lbl">完了Section</div><div class="val">${doneN}/88</div></div>
+    <div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div><div class="muted">日曜（予備日）を除く</div></div>
+  </div></div>`;
+  h+=`<div class="card"><h2>学習時間</h2><div class="row">
+    <div class="stat"><div class="lbl">今日</div><div class="val">${fmtMin(S.minByDate[t])}</div></div>
+    <div class="stat"><div class="lbl">今週（月〜）</div><div class="val">${fmtMin(wk)}</div></div>
+    <div class="stat"><div class="lbl">今月</div><div class="val">${fmtMin(mo)}</div></div>
+    <div class="stat"><div class="lbl">累計</div><div class="val">${fmtMin(all)}</div></div></div>`;
+  const weeks=[]; let w0=weekStart(parse(t)); w0.setDate(w0.getDate()-7*7);
+  for(let i=0;i<8;i++){ const s=new Date(w0); s.setDate(s.getDate()+7*i); const e=new Date(s); e.setDate(e.getDate()+6);
+    let m=0; for(const [d,v] of Object.entries(S.minByDate)) if(d>=iso(s)&&d<=iso(e)) m+=v; weeks.push({s,m}); }
+  const mx=Math.max(600,...weeks.map(w=>w.m));
+  h+=`<div class="bars" style="margin-top:12px">${weeks.map(w=>`<div class="bar"><b>${w.m?(w.m/60).toFixed(1)+"h":""}</b><i style="height:${w.m/mx*100}%"></i>${w.s.getMonth()+1}/${w.s.getDate()}</div>`).join("")}</div><p class="muted">週ごとの学習時間（直近8週）</p></div>`;
+  h+=`<div class="card"><h2>Section地図 <span class="muted" style="font-weight:400">${round}周目</span></h2><div class="map">`;
+  for(const s of SUBJ){
+    const ps=PLAN.filter(p=>p.s===s); h+=`<div class="sub">${s}</div>`;
+    for(let k=1;k<=10;k++){ const p=ps.find(x=>x.k===k);
+      if(!p){ h+=`<div class="cell blank"></div>`; continue; }
+      const stt=status(p,round), late=round===1 && p.d1<t && stt!=="done";
+      h+=`<div class="cell ${stt==="none"?"":stt} ${late?"late":""}" data-go="${p.id}" title="${s} Sec${k} ${esc(p.t)}（予定 ${p.d0.slice(5)}〜${p.d1.slice(5)}）">${k}</div>`; }
+  }
+  h+=`</div><div class="legend"><span style="--c:var(--none)">未着手</span><span style="--c:var(--part)">途中</span><span style="--c:var(--done)">完了（教科書＋全問題）</span><span style="--c:var(--none);--b:var(--late)">予定日を過ぎて未完了</span></div></div>`;
+  $("#v-prog").innerHTML=h;
+}
+
+/* ===== 書き出し ===== */
+function download(name,rows){
+  const csv="﻿"+rows.map(r=>r.map(v=>{v=String(v??"");return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(",")).join("\r\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function expProb(){
+  const rows=[["周回","科目","Section","問題番号","肢A〜E","判定","記録日"]];
+  for(const [k,st] of Object.entries(S.sec)){ const [round,id]=k.split(":"); const p=PLAN.find(x=>x.id==id);
+    for(const [n,m] of Object.entries(st.marks).sort((a,b)=>a[0]-b[0])) rows.push([round,p.s,p.k,n,m.c?m.c.replace(/o/g,"○").replace(/x/g,"×").replace(/t/g,"△"):"（簡易）",({o:"○",x:"×",t:"△"}[judge(m)]),m.date]); }
+  download("演習記録_"+todayIso()+".csv",rows);
+}
+function expTime(){
+  const rows=[["日付","学習時間（分）","内容","メモ"]];
+  for(const e of S.logs) rows.push([e.date,e.minutes,(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+"Sec"+q.k+(it.read?"教科書":"")+(it.lecture?"講義":"")+(Object.keys(it.probs||{}).length?"問題"+Object.keys(it.probs).length:"")}).join(" "),e.memo||""]);
+  download("学習時間_"+todayIso()+".csv",rows);
+}
+
+/* ===== イベント ===== */
+document.addEventListener("click",e=>{
+  const go=e.target.closest("[data-go]"); if(go){ REC.sec=+go.dataset.go; REC.draft=null; show("rec"); return; }
+  const nb=e.target.closest("#nav button"); if(nb){ show(nb.dataset.v); return; }
+  const li=e.target.closest(".lim[data-i]"); if(li){ cycleLim(+li.dataset.n,+li.dataset.i); renderRec(); focusRow(li.dataset.n); return; }
+  const si=e.target.closest("[data-simple]"); if(si){ cycleSimple(+si.dataset.simple); renderRec(); focusRow(si.dataset.simple); return; }
+  const vd=e.target.closest("[data-void]"); if(vd){ voidEv(vd.dataset.void); return; }
+  if(e.target.id==="allDone"){ const p=PLAN.find(x=>x.id==REC.sec); for(let n=p.q0;n<=p.q1;n++) markDone(n); renderRec(); return; }
+  if(e.target.id==="save"){ save(); return; }
+});
+document.addEventListener("change",e=>{
+  if(e.target.id==="rSec"){ if(REC.draft&&REC.draft.touched.size&&!confirm("未保存の問題の記録があります。破棄して切り替えますか？")){ e.target.value=REC.sec; return; } REC.sec=+e.target.value; REC.draft=null; renderRec(); }
+  if(e.target.id==="rRound"){ REC.round=+e.target.value; REC.draft=null; renderRec(); }
+  if(e.target.id==="rSimple"){ REC.simple=e.target.checked; renderRec(); }
+  if(e.target.id==="rRead"&&REC.draft) REC.draft.read=e.target.checked;
+  if(e.target.id==="rLec"&&REC.draft) REC.draft.lecture=e.target.checked;
+  if(e.target.id==="rDate"){ REC.form.date=e.target.value; renderRec(); }
+});
+document.addEventListener("input",e=>{
+  if(e.target.id==="rMin") REC.form.minutes=e.target.value;
+  if(e.target.id==="rMemo") REC.form.memo=e.target.value;
+});
+function focusRow(n){ const r=document.querySelector(`.prow[data-n="${n}"]`); if(r) r.focus(); }
+document.addEventListener("keydown",e=>{
+  const row=e.target.closest&&e.target.closest(".prow"); if(!row||VIEW!=="rec") return;
+  const n=+row.dataset.n;
+  if(/^[1-5]$/.test(e.key)&&!REC.simple){ e.preventDefault(); cycleLim(n,+e.key-1); renderRec(); focusRow(n); }
+  else if(e.key==="0"){ e.preventDefault(); markDone(n); renderRec(); focusRow(n); }
+  else if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); const sib=e.key==="ArrowDown"?row.nextElementSibling:row.previousElementSibling; if(sib&&sib.classList.contains("prow")) sib.focus(); }
+});
+window.addEventListener("beforeunload",e=>{ if(REC.draft&&REC.draft.touched.size){ e.preventDefault(); e.returnValue=""; } });
+$("#openSet").onclick=()=>$("#set").classList.remove("hidden");
+$("#closeSet").onclick=()=>$("#set").classList.add("hidden");
+$("#set").onclick=e=>{ if(e.target.id==="set") $("#set").classList.add("hidden"); };
+$("#expProb").onclick=expProb; $("#expTime").onclick=expTime;
+$("#reload").onclick=()=>{ $("#set").classList.add("hidden"); refresh(); };
+$("#forget").onclick=()=>{ if(confirm("この端末に保存した合言葉を消します。記録は消えません。")){ ls.del("sst_pass"); location.reload(); } };
+
+/* ===== 起動 ===== */
+function showLock(msg){ $("#app").classList.add("hidden"); $("#lock").classList.remove("hidden"); $("#passMsg").textContent=msg||""; $("#passIn").focus(); }
+async function unlock(pass){
+  KEY=await deriveKey(pass); ls.set("sst_pass",pass);
+  $("#lock").classList.add("hidden"); $("#app").classList.remove("hidden");
+  await refresh();
+}
+$("#passOk").onclick=()=>{ const v=$("#passIn").value; if(v.length<6){ $("#passMsg").textContent="6文字以上にしてください。"; return;} unlock(v); };
+$("#passIn").onkeydown=e=>{ if(e.key==="Enter") $("#passOk").click(); };
+(async()=>{
+  $("#modeNote").textContent=CONFIGURED?"保存先：Supabase（暗号化）":"保存先：この端末のみ（お試しモード。Supabase未設定）";
+  if(!CONFIGURED){ $("#app").classList.remove("hidden"); await refresh(); return; }
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  const p=ls.get("sst_pass"); if(p) await unlock(p); else showLock();
+})();
+</script>
+</body>
+</html>
