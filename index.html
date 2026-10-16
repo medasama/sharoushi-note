@@ -119,6 +119,10 @@ ul.todo li{margin:2px 0}
 .mon .ln{margin:3px 0;display:flex;gap:4px}.mon .ln>div{flex:1;min-width:0;overflow-wrap:anywhere}.mon>div{min-width:0}
 .mon .sj{display:inline-block;margin:1px 6px 1px 0;white-space:nowrap}
 .mon .sj.cur{font-weight:700;color:var(--accent)}
+.tmtime{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;min-width:130px}
+.tmaway{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tmchip{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
+.tmchip:empty{display:none}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -127,7 +131,7 @@ ul.todo li{margin:2px 0}
 </head>
 <body>
 <header><div class="hwrap">
-  <h1>社労士 進捗帳</h1><span class="sync" id="sync"></span><span class="sync" id="fsBar"></span>
+  <h1>社労士 進捗帳</h1><span class="sync" id="sync"></span><span class="sync" id="fsBar"></span><button class="tmchip" id="tmChip" title="タイマー（今日の画面へ）"></button>
   <nav id="nav"><button data-v="all">全体</button><button data-v="today" class="on">今日</button><button data-v="rec">記録</button><button data-v="prog">進み具合</button></nav>
   <button class="iconbtn" id="openSet" title="設定">⚙</button>
 </div></header>
@@ -385,6 +389,7 @@ function renderToday(){
     <div><div class="big">${jdate(t)}</div><div class="muted">試験まであと${toExam}日（${EXAM_DATE.slice(5).replace("-","/")}見込み）</div></div>
     <div class="row"><div class="stat"><div class="lbl">今日の学習時間</div><div class="val">${fmtMin(S.minByDate[t])}</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input type="number" id="tTmin" min="0" step="5" inputmode="numeric" placeholder="分" style="width:80px"><button class="btn small" data-addtime="tT" data-date="${t}">追加</button></div></div>
     <div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div></div></div></div></div>`;
+  h+=timerHtml();
   h+=`<div class="card"><h2>今日の範囲</h2>`;
   if(d.getDay()===0 && !todays.length) h+=`<p>今日は予備日です。遅れている範囲や復習に使ってください。</p>`;
   else if(!todays.length) h+=`<p class="muted">今日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
@@ -699,6 +704,82 @@ document.addEventListener("change",async e=>{
   try{ const list=JSON.parse(await e.target.files[0].text()); await importEvents(list,"ファイル"); }catch(err){ toast("ファイルを読めませんでした"); }
   e.target.value="";
 });
+
+/* ===== タイマー（この端末のブラウザに状態を保存。記録は終了時に学習時間として保存） ===== */
+const TM_KEY="sst_timer", TM_GAP=150000, TM_AWAY_MIN=60000;
+let TM=null, TM_END=null, WAKE=null;
+function tmLoad(){ try{ TM=JSON.parse(ls.get(TM_KEY)||"null"); }catch(e){ TM=null; } if(!TM) TM={state:null,lec:false,pending:0}; }
+function tmSave(){ ls.set(TM_KEY,JSON.stringify(TM)); }
+function tmElapsed(now=Date.now()){ if(!TM.state) return 0; return TM.acc+(TM.state==="run"? Math.max(0,now-TM.seg):0); }
+const hms=ms=>{ const s=Math.floor(ms/1000); return Math.floor(s/3600)+":"+pad(Math.floor(s/60)%60)+":"+pad(s%60); };
+function tmAway(ms){ if(ms>=TM_AWAY_MIN) TM.pending=(TM.pending||0)+ms; }
+function tmStart(){ const now=Date.now(); TM={state:"run",lec:false,pending:0,start:now,date:todayIso(),acc:0,seg:now,last:now,auto:false}; TM_END=null; tmSave(); wakeOn(); tmRender(); }
+function tmPause(auto){ if(TM.state!=="run") return; const now=Date.now(); TM.acc+=Math.max(0,now-TM.seg); TM.state="pause"; TM.auto=!!auto; TM.awayFrom=now; tmSave(); if(!auto) wakeOff(); tmRender(); }
+function tmResume(){ if(TM.state!=="pause") return; const now=Date.now(); if(TM.auto) tmAway(now-TM.awayFrom); TM.state="run"; TM.auto=false; TM.seg=now; TM.last=now; tmSave(); wakeOn(); tmRender(); }
+function tmFinish(){ if(!TM.state) return; if(TM.state==="run") tmPause(false); TM_END={min:Math.round(tmElapsed()/60000),date:TM.date}; wakeOff(); tmRender(); }
+function tmReset(){ TM={state:null,lec:false,pending:0}; TM_END=null; tmSave(); wakeOff(); tmRender(); }
+async function tmSaveEnd(){
+  const el=$("#tmMin"), minutes=Math.max(0,parseInt((el&&el.value)||"0",10)||0), date=($("#tmDate")&&$("#tmDate").value)||TM_END.date;
+  if(!minutes){ if(confirm("0分です。記録せずにタイマーを終わりますか？")) tmReset(); return; }
+  const ev={t:"time",id:uid(),ts:Date.now(),date,minutes,memo:"タイマー"};
+  try{ await store.add(ev); EVENTS.push(ev); derive(); tmReset(); toast("学習時間を追加しました（"+fmtMin(minutes)+"）"); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
+}
+/* 15秒以上の途切れ＝スリープ・ブラウザ終了など。150秒を超えた分は「止まっていた時間」 */
+function tmTick(){
+  if(!TM) return; const now=Date.now();
+  if(TM.state==="run"){
+    if(now-TM.last>TM_GAP){ TM.acc+=Math.max(0,TM.last-TM.seg); tmAway(now-TM.last); TM.seg=now; tmSave(); tmRender(); }
+    TM.last=now; if(now%5000<1100) tmSave();
+  }
+  const t=$("#tmTime"); if(t) t.textContent=hms(tmElapsed(now));
+  const hc=$("#tmChip"); if(hc) hc.textContent=tmChipText();
+}
+function tmChipText(){ if(!TM||!TM.state) return ""; return (TM.state==="run"?"● 計測中 ":"一時停止 ")+hms(tmElapsed()).slice(0,-3)+(TM.lec&&TM.state==="run"?"（講義モード）":""); }
+document.addEventListener("visibilitychange",()=>{
+  if(!TM) return;
+  if(document.visibilityState==="hidden"){ if(TM.state==="run" && !TM.lec) tmPause(true); else { TM.last=Date.now(); tmSave(); } }
+  else { if(TM.state==="pause" && TM.auto) tmResume(); else if(TM.state==="run"){ tmTick(); wakeOn(); } }
+});
+window.addEventListener("pagehide",()=>{ if(TM&&TM.state==="run"){ TM.last=Date.now(); tmSave(); } });
+async function wakeOn(){ try{ if(!WAKE && "wakeLock" in navigator && document.visibilityState==="visible"){ WAKE=await navigator.wakeLock.request("screen"); WAKE.addEventListener("release",()=>{WAKE=null;}); } }catch(e){} }
+function wakeOff(){ try{ if(WAKE) WAKE.release(); }catch(e){} WAKE=null; }
+function tmInit(){
+  tmLoad(); const now=Date.now();
+  if(TM.state==="run"){ TM.acc+=Math.max(0,(TM.last||now)-TM.seg); const gap=now-(TM.last||now); if(gap>15000) tmAway(gap); TM.seg=now; TM.last=now; tmSave(); wakeOn(); }
+  else if(TM.state==="pause" && TM.auto && document.visibilityState==="visible") tmResume();
+  setInterval(tmTick,1000);
+}
+function timerHtml(){
+  if(!TM) tmLoad();
+  const st=TM.state, lecBtn=`<label class="check" title="講義を別のタブで見るときにオン。オンの間は画面を離れても止まりません。タイマーを終了するとオフに戻ります"><input type="checkbox" id="tmLec" ${TM.lec?"checked":""}> 講義モード（離れても止めない）</label>`;
+  let h=`<div class="card" id="tmCard"><h2>タイマー ${st==="run"?`<span class="chip ok">計測中</span>`:st==="pause"?`<span class="chip mid">${TM.auto?"離れたので一時停止":"一時停止中"}</span>`:""}</h2>`;
+  if(TM_END){
+    h+=`<div class="row"><span>計測：<b>${fmtMin(TM_END.min)}</b></span>
+      <input type="date" id="tmDate" value="${TM_END.date}" style="width:auto"><input type="number" id="tmMin" min="0" step="1" value="${TM_END.min}" style="width:90px"><span>分</span>
+      <button class="btn small" id="tmSaveEnd">学習時間に保存</button><button class="btn ghost small" id="tmBack">計測に戻る</button><button class="btn ghost small" id="tmDiscard">保存しないで終わる</button></div>
+      <p class="muted">分数は直せます。日付は開始した日です。</p>`;
+  } else {
+    h+=`<div class="row" style="align-items:center"><div class="tmtime" id="tmTime">${hms(tmElapsed())}</div>
+      ${!st?`<button class="btn" id="tmStart">開始</button>`:st==="run"?`<button class="btn ghost" id="tmPause">一時停止</button><button class="btn" id="tmFinish">終了</button>`:`<button class="btn" id="tmResume">再開</button><button class="btn ghost" id="tmFinish">終了</button>`}
+      ${lecBtn}</div>`;
+    if(TM.pending>=TM_AWAY_MIN && st) h+=`<div class="tmaway">止まっていた時間 ${fmtMin(Math.round(TM.pending/60000))} <button class="btn small" id="tmAddAway">足す</button><button class="btn ghost small" id="tmDropAway">足さない</button><span class="muted">講義など勉強していたなら「足す」</span></div>`;
+    h+=`<p class="muted">別のタブ・最小化・画面ロック・スリープのときは自動で止まり、戻ると再開します。1分以上止まっていたときは「足す」で戻せます。計測中はPCの画面が消えないようにします。</p>`;
+  }
+  return h+`</div>`;
+}
+function tmRender(){ const c=$("#tmCard"); if(c) c.outerHTML=timerHtml(); const hc=$("#tmChip"); if(hc) hc.textContent=tmChipText(); }
+document.addEventListener("click",e=>{
+  const id=e.target.id;
+  if(id==="tmStart") tmStart(); else if(id==="tmPause") tmPause(false); else if(id==="tmResume") tmResume(); else if(id==="tmFinish") tmFinish();
+  else if(id==="tmBack"){ TM_END=null; tmResume(); }
+  else if(id==="tmDiscard"){ if(confirm("計測した時間を保存せずに終わりますか？")) tmReset(); }
+  else if(id==="tmSaveEnd") tmSaveEnd();
+  else if(id==="tmAddAway"){ TM.acc+=TM.pending; TM.pending=0; tmSave(); tmRender(); toast("足しました"); }
+  else if(id==="tmDropAway"){ TM.pending=0; tmSave(); tmRender(); }
+  else if(id==="tmChip"){ show("today"); }
+});
+document.addEventListener("change",e=>{ if(e.target.id==="tmLec"){ TM.lec=e.target.checked; tmSave(); tmRender(); } });
+tmInit();
 
 /* ===== イベント ===== */
 document.addEventListener("click",e=>{
