@@ -159,10 +159,11 @@ ul.todo li{margin:2px 0}
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script>
-/* ===== 設定（Claude Codeが埋める） ===== */
-const SUPABASE_URL = "";
-const SUPABASE_ANON_KEY = "";
+/* ===== 設定：接続情報は config.js に書く（index.html には書かない） ===== */
+const SUPABASE_URL = (window.SST_CONFIG||{}).SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = (window.SST_CONFIG||{}).SUPABASE_ANON_KEY || "";
 const TABLE = "sharoushi_logs";
 const EXAM_DATE = "2027-08-22"; // 見込み。2027年4月の公示で確認
 /* ===================================== */
