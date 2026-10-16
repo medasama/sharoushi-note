@@ -344,8 +344,8 @@ function aheadDays(){
 /* ===== 画面 ===== */
 let VIEW="today", REC={sec:null,round:1,simple:false,draft:null,form:{date:null,minutes:"",memo:""}};
 function show(v){ VIEW=v; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
-  for(const id of ["all","today","rec","prog"]) $("#v-"+id).classList.toggle("hidden",id!==v); renderAll(); }
-function renderAll(){ if(!S) return; if(VIEW==="all") renderOverview(); if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); }
+  for(const id of ["all","today","rec","prog"]) $("#v-"+id).classList.toggle("hidden",id!==v); renderAll(); window.scrollTo(0,0); }
+function renderAll(){ if(!S) return; const _y=window.scrollY; const _open=[...document.querySelectorAll("details[open] summary")].map(x=>x.textContent); if(VIEW==="all") renderOverview(); if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); for(const d of document.querySelectorAll("details")){ const t=d.querySelector("summary"); if(t&&_open.includes(t.textContent)) d.open=true; } window.scrollTo(0,_y); }
 
 function secLine(p,withBtn=true){
   const st=secState(p.id), done=Object.keys(st.marks).length, ld=lecDate(p), t=todayIso();
@@ -482,16 +482,6 @@ function renderProg(){
     <div class="stat"><div class="lbl">完了Section</div><div class="val">${doneN}/88</div></div>
     <div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div><div class="muted">日曜（予備日）を除く</div></div>
   </div></div>`;
-  { const L=lecSummary(); const nx=L.upcoming[0];
-    const grp=nx?L.upcoming.filter(l=>l.lec===nx.lec):[];
-    h+=`<div class="card" id="lecCard"><h2>講義</h2><div class="row">
-      <div class="stat"><div class="lbl">配信済み（目安）</div><div class="val">${L.released.length}/${L.L.length}</div></div>
-      <div class="stat"><div class="lbl">視聴済み</div><div class="val">${L.watched.length}</div></div>
-      <div class="stat"><div class="lbl">配信済みで未視聴</div><div class="val" style="color:${L.backlog.length?"var(--mid)":"var(--ok)"}">${L.backlog.length}</div></div></div>
-      ${nx?`<p class="muted" style="margin-top:8px">次の配信：${esc(nx.lec.slice(0,4))}年${esc(lecLabel(nx))}　${esc(grp[0].name.split(" ")[0])}ほか${grp.length}本</p>`:""}
-      ${L.backlog.length?`<div class="loglist" style="margin-top:6px">${L.backlog.map(l=>`<div><span style="flex:1">${esc(l.name)}</span><span class="muted">${esc(lecLabel(l))}</span><button class="btn small" data-lecwatch="${l.key}">視聴済み</button></div>`).join("")}</div>`:`<p class="muted">未視聴の講義はありません。</p>`}
-      ${L.watched.length?`<details style="margin-top:8px"><summary class="muted">視聴済みの一覧（${L.watched.length}本）</summary><div class="loglist">${L.watched.map(l=>`<div><span style="flex:1">${esc(l.name)}</span><span class="muted">${l.watched.slice(5)}</span>${S.lecEv[l.key]?`<button class="btn ghost small" data-void="${S.lecEv[l.key]}">取消</button>`:`<span class="muted">（記録画面で登録）</span>`}</div>`).join("")}</div></details>`:""}
-      <p class="muted">配信日は上旬＝1日、中旬＝11日、下旬＝21日として判定した目安です。</p></div>`; }
   h+=`<div class="card"><h2>学習時間</h2><div class="row">
     <div class="stat"><div class="lbl">今日</div><div class="val">${fmtMin(S.minByDate[t])}</div></div>
     <div class="stat"><div class="lbl">今週（月〜）</div><div class="val">${fmtMin(wk)}</div></div>
@@ -511,6 +501,20 @@ function renderProg(){
       h+=`<div class="cell ${stt==="none"?"":stt} ${late?"late":""}" data-go="${p.id}" title="${s} Sec${k} ${esc(p.t)}（予定 ${p.d0.slice(5)}〜${p.d1.slice(5)}）">${k}</div>`; }
   }
   h+=`</div><div class="legend"><span style="--c:var(--none)">未着手</span><span style="--c:var(--part)">途中</span><span style="--c:var(--done)">完了（教科書＋全問題）</span><span style="--c:var(--none);--b:var(--late)">予定日を過ぎて未完了</span></div></div>`;
+  { const L=lecSummary(); const nx=L.upcoming[0];
+    const grp=nx?L.upcoming.filter(l=>l.lec===nx.lec):[];
+    const row=l=>{ const w=S.lecW[l.key];
+      return `<div><span style="flex:1">${w?"✓ ":""}${esc(l.name)}</span><span class="muted">${esc(lecLabel(l))}配信</span>${
+        w?`<span class="chip ok">${w.slice(5).replace("-","/")} 視聴</span>${S.lecEv[l.key]?`<button class="btn ghost small" data-void="${S.lecEv[l.key]}">取消</button>`:`<span class="muted" title="記録画面のチェックで登録した分は、その日の記録の取消で戻せます">（記録画面）</span>`}`
+         :`<button class="btn small" data-lecwatch="${l.key}">視聴済みにする</button>`}</div>`; };
+    h+=`<div class="card" id="lecCard"><h2>講義</h2><div class="row">
+      <div class="stat"><div class="lbl">配信済み（目安）</div><div class="val">${L.released.length}/${L.L.length}</div></div>
+      <div class="stat"><div class="lbl">視聴済み</div><div class="val">${L.watched.length}</div></div>
+      <div class="stat"><div class="lbl">配信済みで未視聴</div><div class="val" style="color:${L.backlog.length?"var(--mid)":"var(--ok)"}">${L.backlog.length}</div></div></div>
+      ${nx?`<p class="muted" style="margin-top:8px">次の配信：${esc(nx.lec.slice(0,4))}年${esc(lecLabel(nx))}　${esc(grp[0].name.split(" ")[0])}ほか${grp.length}本</p>`:""}
+      <div class="loglist" style="margin-top:6px">${L.released.length?L.released.map(row).join(""):`<p class="muted">まだ配信された講義はありません。</p>`}</div>
+      ${L.upcoming.length?`<details style="margin-top:8px"><summary class="muted">これから配信される講義（${L.upcoming.length}本）</summary><div class="loglist">${L.upcoming.map(row).join("")}</div></details>`:""}
+      <p class="muted">「視聴済みにする」を押しても行は消えず、その場で「✓ 視聴」に変わります。配信日は上旬＝1日、中旬＝11日、下旬＝21日として判定した目安です。</p></div>`; }
   $("#v-prog").innerHTML=h;
 }
 
