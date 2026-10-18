@@ -123,6 +123,23 @@ ul.todo li{margin:2px 0}
 .tmaway{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tmchip{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
 .tmchip:empty{display:none}
+.sj-head,.sj summary{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr 1.3fr;gap:8px;align-items:center}
+.sj-head{font-size:12px;color:var(--sub);padding:0 8px 4px 22px}
+.sj{border-top:1px solid var(--line)}
+.sj summary{cursor:pointer;padding:9px 8px;font-size:14px;list-style-position:outside}
+.sj summary::-webkit-details-marker{color:var(--sub)}
+.sj summary small,.sj-sec small{display:block;font-size:11px;color:var(--sub)}
+.sj.now>summary{background:var(--bg);border-radius:8px}
+.sj .nm{font-weight:700}
+.sj-body{padding:2px 0 10px 14px}
+.sj-sec{display:grid;grid-template-columns:44px 2.4fr 1fr 1fr .8fr 1.1fr;gap:8px;align-items:center;padding:6px 8px;border-top:1px dashed var(--line);font-size:13px;cursor:pointer}
+.sj-sec:hover{background:var(--bg)}
+.sj-sec.now{background:var(--bg);border-radius:6px}
+.sj-sec .k{color:var(--sub);font-weight:700}
+.sj-sec .y{color:var(--ok);font-weight:700}.sj-sec .m{color:var(--mid);font-weight:700}.sj-sec .n{color:var(--sub)}
+.ox i{font-style:normal;margin-right:6px;font-variant-numeric:tabular-nums}
+.ox .o{color:var(--ok)}.ox .t{color:var(--mid)}.ox .x{color:var(--ng)}
+@media (max-width:700px){.sj-head{display:none}.sj summary{grid-template-columns:repeat(4,1fr);font-size:13px;gap:4px 6px}.sj .nm{grid-column:1/-1}.sj summary .muted{display:none}.sj-body{padding-left:0}.sj-sec{grid-template-columns:repeat(4,1fr);font-size:12px;gap:2px 6px}.sj-sec .tt{grid-column:2/-1}.ox i{margin-right:3px}}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -157,10 +174,6 @@ ul.todo li{margin:2px 0}
     <p class="muted">学習フォルダの「社労士試験合格\data」を選ぶと、記録を保存するたびに 演習記録.csv・学習時間.csv・講義視聴.csv が自動で上書きされます（PCのChrome／Edge）。</p>
     <p class="muted" id="fsDirName">保存先：未設定</p>
     <div class="row"><button class="btn small" id="pickDir">保存先フォルダを選ぶ</button><button class="btn ghost small" id="saveNow">今すぐ保存</button></div></div>
-  <div class="card" id="migCard"><h2>お試しモードの記録</h2>
-    <p class="muted" id="migNote"></p>
-    <div class="row" id="migBtns"></div>
-    <input type="file" id="migFile" accept=".json,application/json" class="hidden"></div>
   <div class="card"><h2>手動でダウンロード</h2>
     <div class="row"><button class="btn ghost small" id="expProb">演習記録CSV</button><button class="btn ghost small" id="expTime">学習時間CSV</button><button class="btn ghost small" id="expLec">講義視聴CSV</button></div></div>
   <div class="card"><h2>データ</h2>
@@ -368,7 +381,7 @@ function aheadDays(){
 let VIEW="today", REC={sec:null,round:1,simple:false,draft:null,form:{date:null,minutes:"",memo:""}};
 function show(v){ VIEW=v; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
   for(const id of ["all","today","rec","prog"]) $("#v-"+id).classList.toggle("hidden",id!==v); renderAll(); window.scrollTo(0,0); }
-function renderAll(){ if(!S) return; const _y=window.scrollY; const _open=[...document.querySelectorAll("details[open] summary")].map(x=>x.textContent); if(VIEW==="all") renderOverview(); if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); for(const d of document.querySelectorAll("details")){ const t=d.querySelector("summary"); if(t&&_open.includes(t.textContent)) d.open=true; } window.scrollTo(0,_y); }
+function renderAll(){ if(!S) return; const _y=window.scrollY; const _open=[...document.querySelectorAll("details[open] summary")].map(x=>x.dataset.sj||x.textContent); const _closed=[...document.querySelectorAll("details:not([open]) summary[data-sj]")].map(x=>x.dataset.sj); if(VIEW==="all") renderOverview(); if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); for(const d of document.querySelectorAll("details")){ const t=d.querySelector("summary"); if(!t) continue; const k=t.dataset.sj||t.textContent; if(_open.includes(k)) d.open=true; else if(_closed.includes(k)) d.open=false; } window.scrollTo(0,_y); }
 
 function secLine(p,withBtn=true){
   const st=secState(p.id), done=Object.keys(st.marks).length, ld=lecDate(p), t=todayIso();
@@ -446,7 +459,7 @@ function renderRec(){
     <div style="margin-top:10px" class="row"><button class="btn" id="save">保存</button><span class="muted" id="dirty"></span></div></div>`;
   const dl=S.logs.filter(e=>e.date===date);
   const dtimes=S.times.filter(e=>e.date===date);
-  h+=`<div class="card"><h2>${jdate(date)}の記録</h2><div class="loglist">${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":"")+(it.lecture?" 講義":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
+  h+=`<div class="card"><h2>${jdate(date)}の記録</h2><div class="loglist">${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":"")+(it.lecture?" 講義":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
   $("#v-rec").innerHTML=h;
   updDirty();
 }
@@ -495,6 +508,39 @@ async function lecWatch(key){
   try{ await store.add(ev); EVENTS.push(ev); derive(); toast("視聴済みにしました"); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
 }
 function weekStart(d){ const x=new Date(d); const w=(x.getDay()+6)%7; x.setDate(x.getDate()-w); return x; }
+/* ===== 科目ごとの取り組み（科目の一覧＋開くとSectionごとの中身） ===== */
+function secCounts(p,round){ const st=secState(p.id,round), c={o:0,t:0,x:0}; let n=0;
+  for(let q=p.q0;q<=p.q1;q++){ const m=st.marks[q]; if(m){ n++; c[judge(m)]++; } } return {st,n,c}; }
+const ctx=c=>`<span class="ox"><i class="o">○${c.o}</i><i class="t">△${c.t}</i><i class="x">×${c.x}</i></span>`;
+function subjCard(round){
+  const t=todayIso(), md=d=>d.slice(5).replace("-","/").replace(/^0/,"").replace("/0","/");
+  let h=`<div class="card" id="subjCard"><h2>科目ごとの取り組み <span class="muted" style="font-weight:400">${round}周目・科目を押すとSectionごとの中身</span></h2>
+    <div class="sj-head"><span>科目</span><span>予定</span><span>教科書</span><span>講義</span><span>問題</span><span>○△×</span></div>`;
+  for(const s of SUBJ){
+    const ps=PLAN.filter(p=>p.s===s); if(!ps.length) continue;
+    const d0=ps[0].d0, d1=ps[ps.length-1].d1;
+    let rd=0,rp=0,pg=0,lw=0,lr=0,qd=0,qa=0; const c={o:0,t:0,x:0};
+    const rows=ps.map(p=>{ const {st,n,c:cc}=secCounts(p,round); pg+=p.pg; qa+=qn(p); qd+=n; c.o+=cc.o;c.t+=cc.t;c.x+=cc.x;
+      if(st.read){rd++;rp+=p.pg;} if(st.lecture) lw++; const ld=lecDate(p); if(ld&&ld<=t) lr++;
+      const stt=status(p,round), late=round===1&&p.d1<t&&stt!=="done", now=round===1&&p.d0<=t&&t<=p.d1;
+      return `<div class="sj-sec ${now?"now":""}" data-go="${p.id}" title="押すと記録画面へ">
+        <span class="k">Sec${p.k}</span><span class="tt">${esc(p.t)}${now?' <span class="chip ok">今日</span>':""}${late?' <span class="chip ng">遅れ</span>':""}<small>p.${p.p0}〜${p.p1}（${p.pg}p）・問${p.q0}〜${p.q1}・予定 ${md(p.d0)}${p.d1!==p.d0?"〜"+md(p.d1):""}</small></span>
+        <span class="${st.read?"y":"n"}">教科書 ${st.read?"✓ "+md(st.read):"—"}</span>
+        <span class="${st.lecture?"y":"n"}">講義 ${st.lecture?"✓ "+md(st.lecture):(ld&&ld<=t?"未視聴":esc(lecLabel(p)))}</span>
+        <span class="${n>=qn(p)?"y":n?"m":"n"}">問題 ${n}/${qn(p)}</span>${n?ctx(cc):`<span></span>`}</div>`; }).join("");
+    const allDone=ps.every(p=>status(p,round)==="done"), started=ps.some(p=>status(p,round)!=="none");
+    const now=round===1&&d0<=t&&t<=d1, late=round===1&&d1<t&&!allDone;
+    const chip=allDone?'<span class="chip ok">完了</span>':now?'<span class="chip mid">今の科目</span>':late?'<span class="chip ng">遅れ</span>':started?'<span class="chip">途中</span>':"";
+    const rate=qd?Math.round(c.o/qd*100):null;
+    h+=`<details class="sj ${now?"now":""}" ${now?"open":""}><summary data-sj="${s}">
+      <span class="nm">${s} ${chip}</span><span class="muted">${md(d0)}〜${md(d1)}</span>
+      <span><b>${rd}</b>/${ps.length}Sec<small>${rp}/${pg}p</small></span>
+      <span><b>${lw}</b>/${ps.length}本<small>配信 ${lr}本</small></span>
+      <span><b>${qd}</b>/${qa}問<small>${rate===null?"":"○率 "+rate+"%"}</small></span>
+      ${qd?ctx(c):"<span></span>"}</summary><div class="sj-body">${rows}</div></details>`;
+  }
+  return h+`<p class="muted">○△×は問題ごとの判定（肢に×が1つでもあれば×、△があれば△）。○率＝解いた問題のうち○の割合。</p></div>`;
+}
 function renderProg(){
   const t=todayIso(), a=aheadDays(), round=REC.round;
   const ws=iso(weekStart(parse(t))), ms=t.slice(0,8)+"01";
@@ -506,6 +552,7 @@ function renderProg(){
     <div class="stat"><div class="lbl">完了Section</div><div class="val">${doneN}/88</div></div>
     <div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div><div class="muted">日曜（予備日）を除く</div></div>
   </div></div>`;
+  h+=subjCard(round);
   h+=`<div class="card"><h2>学習時間</h2><div class="row">
     <div class="stat"><div class="lbl">今日</div><div class="val">${fmtMin(S.minByDate[t])}</div></div>
     <div class="stat"><div class="lbl">今週（月〜）</div><div class="val">${fmtMin(wk)}</div></div>
@@ -623,10 +670,10 @@ function probRows(){
   return rows;
 }
 function timeRows(){
-  const rows=[["日付","学習時間（分）","その日に記録した内容（時間の内訳ではない）","メモ"]];
+  const rows=[["日付","学習時間（分）","タイマーの時間帯","その日に記録した内容（時間の内訳ではない）","メモ"]];
   const dates=[...new Set([...Object.keys(S.minByDate),...S.logs.map(e=>e.date)])].sort();
   for(const d of dates){ const ls_=S.logs.filter(e=>e.date===d);
-    rows.push([d,S.minByDate[d]||0,ls_.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+"Sec"+q.k+(it.read?"教科書":"")+(it.lecture?"講義":"")+(Object.keys(it.probs||{}).length?"問題"+Object.keys(it.probs).length:"")})).join(" "),ls_.map(e=>e.memo).filter(Boolean).join("／")]); }
+    rows.push([d,S.minByDate[d]||0,S.times.filter(e=>e.date===d&&e.from).map(e=>e.from+"-"+e.to).join(" "),ls_.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+"Sec"+q.k+(it.read?"教科書":"")+(it.lecture?"講義":"")+(Object.keys(it.probs||{}).length?"問題"+Object.keys(it.probs).length:"")})).join(" "),ls_.map(e=>e.memo).filter(Boolean).join("／")]); }
   return rows;
 }
 function lecRows(){ const L=lecSummary(); return [["講義","配信（目安）","視聴日"],...L.L.map(l=>[l.name,l.lec,l.watched||""])]; }
@@ -669,45 +716,10 @@ async function pickDir(){
 }
 async function initFs(){ if(!FS_OK){ updFs(); return; } DIR=await kvGet("dir"); updFs(); if(DIR) await writeFiles(false); }
 
-/* ===== お試しモードの記録の移行 ===== */
-function demoEvents(){ try{ return JSON.parse(ls.get("sst_demo")||"[]"); }catch(e){ return []; } }
-function updMig(){
-  const note=$("#migNote"), btns=$("#migBtns"); if(!note) return;
-  const d=demoEvents();
-  if(!CONFIGURED){
-    note.textContent="今はお試しモードです（記録 "+d.length+"件、この端末のこのページだけに保存）。本番版に移すときは、ファイルに保存してから本番版で取り込んでください。";
-    btns.innerHTML=d.length?'<button class="btn small" id="migExport">お試し記録をファイルに保存</button>':'';
-  } else {
-    const ids=new Set(EVENTS.map(e=>e.id)); const rest=d.filter(e=>!ids.has(e.id));
-    note.textContent=rest.length?("このブラウザに、まだ本番に移していないお試しモードの記録が "+rest.length+"件あります。"):"このブラウザにお試しモードの記録はありません（別の画面で入れた記録は、ファイルから取り込めます）。";
-    btns.innerHTML=(rest.length?'<button class="btn small" id="migLocal">お試し記録を本番に移す</button>':'')+'<button class="btn ghost small" id="migImport">ファイルから取り込む</button>';
-  }
-}
-async function importEvents(list,label){
-  if(!CONFIGURED){ toast("本番版で行ってください"); return; }
-  const ids=new Set(EVENTS.map(e=>e.id));
-  const todo=(Array.isArray(list)?list:[]).filter(e=>e&&e.id&&e.t&&!ids.has(e.id)).sort((a,b)=>a.ts-b.ts);
-  if(!todo.length){ toast("移す記録はありません（すでに移行済み）"); updMig(); return; }
-  if(!confirm(label+"の記録 "+todo.length+"件を本番（Supabase）に移します。よろしいですか？")) return;
-  let ok=0;
-  for(const ev of todo){ try{ await store.add(ev); EVENTS.push(ev); ok++; }catch(e){ console.error(e); break; } }
-  EVENTS.sort((a,b)=>a.ts-b.ts); derive(); renderAll(); updMig(); writeFiles(false);
-  toast(ok===todo.length?("記録 "+ok+"件を移しました"):("途中で失敗しました（"+ok+"/"+todo.length+"件）。もう一度押すと続きから移します"));
-}
-document.addEventListener("click",e=>{
-  if(e.target.id==="migExport"){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(demoEvents())],{type:"application/json"})); a.download="お試し記録_"+todayIso()+".json"; a.click(); return; }
-  if(e.target.id==="migLocal"){ importEvents(demoEvents(),"このブラウザのお試しモード"); return; }
-  if(e.target.id==="migImport"){ $("#migFile").click(); return; }
-});
-document.addEventListener("change",async e=>{
-  if(e.target.id!=="migFile"||!e.target.files[0]) return;
-  try{ const list=JSON.parse(await e.target.files[0].text()); await importEvents(list,"ファイル"); }catch(err){ toast("ファイルを読めませんでした"); }
-  e.target.value="";
-});
-
 /* ===== タイマー（この端末のブラウザに状態を保存。記録は終了時に学習時間として保存） ===== */
 const TM_KEY="sst_timer", TM_GAP=150000, TM_AWAY_MIN=60000;
 let TM=null, TM_END=null, WAKE=null;
+const hm=ts=>{const d=new Date(ts);return pad(d.getHours())+":"+pad(d.getMinutes());};
 function tmLoad(){ try{ TM=JSON.parse(ls.get(TM_KEY)||"null"); }catch(e){ TM=null; } if(!TM) TM={state:null,lec:false,pending:0}; }
 function tmSave(){ ls.set(TM_KEY,JSON.stringify(TM)); }
 function tmElapsed(now=Date.now()){ if(!TM.state) return 0; return TM.acc+(TM.state==="run"? Math.max(0,now-TM.seg):0); }
@@ -716,12 +728,12 @@ function tmAway(ms){ if(ms>=TM_AWAY_MIN) TM.pending=(TM.pending||0)+ms; }
 function tmStart(){ const now=Date.now(); TM={state:"run",lec:false,pending:0,start:now,date:todayIso(),acc:0,seg:now,last:now,auto:false}; TM_END=null; tmSave(); wakeOn(); tmRender(); }
 function tmPause(auto){ if(TM.state!=="run") return; const now=Date.now(); TM.acc+=Math.max(0,now-TM.seg); TM.state="pause"; TM.auto=!!auto; TM.awayFrom=now; tmSave(); if(!auto) wakeOff(); tmRender(); }
 function tmResume(){ if(TM.state!=="pause") return; const now=Date.now(); if(TM.auto) tmAway(now-TM.awayFrom); TM.state="run"; TM.auto=false; TM.seg=now; TM.last=now; tmSave(); wakeOn(); tmRender(); }
-function tmFinish(){ if(!TM.state) return; if(TM.state==="run") tmPause(false); TM_END={min:Math.round(tmElapsed()/60000),date:TM.date}; wakeOff(); tmRender(); }
+function tmFinish(){ if(!TM.state) return; if(TM.state==="run") tmPause(false); TM_END={min:Math.round(tmElapsed()/60000),date:TM.date,from:hm(TM.start),to:hm(Date.now())}; wakeOff(); tmRender(); }
 function tmReset(){ TM={state:null,lec:false,pending:0}; TM_END=null; tmSave(); wakeOff(); tmRender(); }
 async function tmSaveEnd(){
   const el=$("#tmMin"), minutes=Math.max(0,parseInt((el&&el.value)||"0",10)||0), date=($("#tmDate")&&$("#tmDate").value)||TM_END.date;
   if(!minutes){ if(confirm("0分です。記録せずにタイマーを終わりますか？")) tmReset(); return; }
-  const ev={t:"time",id:uid(),ts:Date.now(),date,minutes,memo:"タイマー"};
+  const ev={t:"time",id:uid(),ts:Date.now(),date,minutes,memo:"タイマー",from:TM_END.from,to:TM_END.to};
   try{ await store.add(ev); EVENTS.push(ev); derive(); tmReset(); toast("学習時間を追加しました（"+fmtMin(minutes)+"）"); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
 }
 /* 15秒以上の途切れ＝スリープ・ブラウザ終了など。150秒を超えた分は「止まっていた時間」 */
@@ -754,7 +766,7 @@ function timerHtml(){
   const st=TM.state, lecBtn=`<label class="check" title="講義を別のタブで見るときにオン。オンの間は画面を離れても止まりません。タイマーを終了するとオフに戻ります"><input type="checkbox" id="tmLec" ${TM.lec?"checked":""}> 講義モード（離れても止めない）</label>`;
   let h=`<div class="card" id="tmCard"><h2>タイマー ${st==="run"?`<span class="chip ok">計測中</span>`:st==="pause"?`<span class="chip mid">${TM.auto?"離れたので一時停止":"一時停止中"}</span>`:""}</h2>`;
   if(TM_END){
-    h+=`<div class="row"><span>計測：<b>${fmtMin(TM_END.min)}</b></span>
+    h+=`<div class="row"><span>計測：<b>${fmtMin(TM_END.min)}</b>（${TM_END.from}〜${TM_END.to}）</span>
       <input type="date" id="tmDate" value="${TM_END.date}" style="width:auto"><input type="number" id="tmMin" min="0" step="1" value="${TM_END.min}" style="width:90px"><span>分</span>
       <button class="btn small" id="tmSaveEnd">学習時間に保存</button><button class="btn ghost small" id="tmBack">計測に戻る</button><button class="btn ghost small" id="tmDiscard">保存しないで終わる</button></div>
       <p class="muted">分数は直せます。日付は開始した日です。</p>`;
@@ -816,7 +828,7 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); const sib=e.key==="ArrowDown"?row.nextElementSibling:row.previousElementSibling; if(sib&&sib.classList.contains("prow")) sib.focus(); }
 });
 window.addEventListener("beforeunload",e=>{ if(REC.draft&&REC.draft.touched.size){ e.preventDefault(); e.returnValue=""; } });
-$("#openSet").onclick=()=>{ updMig(); $("#set").classList.remove("hidden"); };
+$("#openSet").onclick=()=>{ $("#set").classList.remove("hidden"); };
 $("#closeSet").onclick=()=>$("#set").classList.add("hidden");
 $("#set").onclick=e=>{ if(e.target.id==="set") $("#set").classList.add("hidden"); };
 $("#expProb").onclick=expProb; $("#expTime").onclick=expTime; $("#expLec").onclick=expLec;
