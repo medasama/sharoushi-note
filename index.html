@@ -145,6 +145,8 @@ ul.todo li{margin:2px 0}
 .wt-row .wd{width:120px;flex-shrink:0}.wt-row .wm{flex:1;font-weight:700}
 .wt-row .wi{display:flex;gap:6px}.wt-row .wi input{width:80px}
 .wt-row.miss .wd{color:var(--mid);font-weight:700}
+.daynav{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.daynav .dn-label{flex:1;text-align:center;font-size:15px}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -397,27 +399,44 @@ function secLine(p,withBtn=true){
     <div style="margin-top:4px"><span class="chip ${st.read?"ok":""}">教科書 ${st.read?"済":"未"}</span>${lecTxt}<span class="chip ${done>=qn(p)?"ok":done?"mid":""}">問題 ${done}/${qn(p)}</span></div>
   </div>${withBtn?`<button class="btn small" data-go="${p.id}">記録する</button>`:""}</div>`;
 }
+let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
 function renderToday(){
-  const t=todayIso(), d=parse(t), el=$("#v-today");
+  const real=todayIso(), t=TODAY_VIEW||real, isToday=t===real, d=parse(t), el=$("#v-today");
+  const shift=n=>{const x=parse(t); x.setDate(x.getDate()+n); return iso(x);};
   const todays=PLAN.filter(p=>p.d0<=t && t<=p.d1);
-  const late=PLAN.filter(p=>p.d1<t && status(p)!=="done");
+  const late=PLAN.filter(p=>p.d1<real && status(p)!=="done");
   const toExam=Math.round((parse(EXAM_DATE)-d)/864e5);
   const a=aheadDays();
-  let h=`<div class="card"><div class="row" style="justify-content:space-between">
-    <div><div class="big">${jdate(t)}</div><div class="muted">試験まであと${toExam}日（${EXAM_DATE.slice(5).replace("-","/")}見込み）</div></div>
-    <div class="row"><div class="stat"><div class="lbl">今日の学習時間</div><div class="val">${fmtMin(S.minByDate[t])}</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input type="number" id="tTmin" min="0" step="5" inputmode="numeric" placeholder="分" style="width:80px"><button class="btn small" data-addtime="tT" data-date="${t}">追加</button></div></div>
-    <div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div></div></div></div></div>`;
-  h+=timerHtml();
-  h+=`<div class="card"><h2>今日の範囲</h2>`;
-  if(d.getDay()===0 && !todays.length) h+=`<p>今日は予備日です。遅れている範囲や復習に使ってください。</p>`;
-  else if(!todays.length) h+=`<p class="muted">今日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
+  const dd=Math.round((d-parse(real))/864e5), rel=isToday?"今日":dd===-1?"昨日":dd===1?"明日":"";
+  let h=`<div class="daynav"><button class="btn ghost small" data-day="${shift(-1)}">◀ 前の日</button>
+    <span class="dn-label">${rel?`<b>${rel}</b>　`:""}${jdate(t)}</span>
+    ${isToday?"":`<button class="btn small" data-day="">今日に戻る</button>`}
+    <button class="btn ghost small" data-day="${shift(1)}">次の日 ▶</button></div>`;
+  h+=`<div class="card"><div class="row" style="justify-content:space-between">
+    <div><div class="big">${jdate(t)}${isToday?"":` <span class="chip">${t<real?"過去の日":"これからの日"}</span>`}</div><div class="muted">試験まであと${toExam}日（${EXAM_DATE.slice(5).replace("-","/")}見込み）</div></div>
+    <div class="row">${t>real?"":`<div class="stat"><div class="lbl">${isToday?"今日":"この日"}の学習時間</div><div class="val">${fmtMin(S.minByDate[t])}</div>${t<=real?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input type="number" id="tTmin" min="0" step="5" inputmode="numeric" placeholder="分" style="width:80px"><button class="btn small" data-addtime="tT" data-date="${t}">追加</button></div>`:""}</div>`}
+    ${isToday?`<div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div></div>`:""}</div></div></div>`;
+  if(isToday) h+=timerHtml();
+  h+=`<div class="card"><h2>${isToday?"今日":"この日"}の範囲</h2>`;
+  if(d.getDay()===0 && !todays.length) h+=`<p>${isToday?"今日":"この日"}は予備日です。遅れている範囲や復習に使ってください。</p>`;
+  else if(!todays.length) h+=`<p class="muted">この日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
   else{ const o=todays.find(p=>p.d0===t && p.k===1 && PLAN.find(q=>q.s===p.s).id===p.id); if(o) h+=`<p class="muted">${esc(o.s)}の初日です。オリエンテーションも読んでください。</p>`;
     h+=todays.map(p=>secLine(p)).join(""); }
   h+=`</div>`;
-  { const ls_=lecSummary(); if(ls_.backlog.length) h+=`<div class="card"><h2>配信済みで未視聴の講義 <span class="chip mid">${ls_.backlog.length}本</span></h2><p class="muted">教科書を先に読んだSectionの講義は、配信されたら復習として見ます。</p><button class="btn ghost small" data-golec="1">講義の一覧を見る</button></div>`; }
-  if(late.length) h+=`<div class="card"><h2>予定日を過ぎて未完了 <span class="chip ng">${late.length}</span></h2>${late.slice(0,6).map(p=>secLine(p)).join("")}${late.length>6?`<p class="muted">ほか${late.length-6}件は「進み具合」で確認できます。</p>`:""}</div>`;
+  if(t<=real){ const dl=S.logs.filter(e=>e.date===t), dt=S.times.filter(e=>e.date===t);
+    const items=dl.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);const n=Object.keys(it.probs||{}).length;return esc(q.s+" Sec"+q.k)+(it.read?" 教科書":"")+(it.lecture?" 講義":"")+(n?" 問題"+n+"問":"");}));
+    h+=`<div class="card"><h2>${isToday?"今日":"この日"}の記録</h2>${items.length||dt.length?`<p>${items.join("、")||"（Sectionの記録なし）"}</p>${dt.length?`<p class="muted">学習時間：${dt.map(e=>fmtMin(e.minutes)+(e.from?"（"+e.from+"〜"+e.to+"）":"")).join("、")}</p>`:""}`:`<p class="muted">記録はありません。</p>`}
+      <button class="btn ghost small" data-recday="${t}">この日の記録を入れる・直す</button></div>`; }
+  if(isToday){
+    const ls_=lecSummary(); if(ls_.backlog.length) h+=`<div class="card"><h2>配信済みで未視聴の講義 <span class="chip mid">${ls_.backlog.length}本</span></h2><p class="muted">教科書を先に読んだSectionの講義は、配信されたら復習として見ます。</p><button class="btn ghost small" data-golec="1">講義の一覧を見る</button></div>`;
+    if(late.length) h+=`<div class="card"><h2>予定日を過ぎて未完了 <span class="chip ng">${late.length}</span></h2>${late.slice(0,6).map(p=>secLine(p)).join("")}${late.length>6?`<p class="muted">ほか${late.length-6}件は「進み具合」で確認できます。</p>`:""}</div>`;
+  }
   el.innerHTML=h;
 }
+document.addEventListener("click",e=>{
+  const dy=e.target.closest("[data-day]"); if(dy){ const v=dy.dataset.day; TODAY_VIEW=(v&&v!==todayIso())?v:null; renderToday(); window.scrollTo(0,0); return; }
+  const rd=e.target.closest("[data-recday]"); if(rd){ REC.form.date=rd.dataset.recday; show("rec"); }
+});
 
 function secOptions(sel){
   return SUBJ.map(s=>`<optgroup label="${s}">`+PLAN.filter(p=>p.s===s).map(p=>`<option value="${p.id}" ${p.id==sel?"selected":""}>${s} Sec${p.k} ${esc(p.t)}</option>`).join("")+`</optgroup>`).join("");
@@ -810,8 +829,8 @@ tmInit();
 
 /* ===== イベント ===== */
 document.addEventListener("click",e=>{
-  const go=e.target.closest("[data-go]"); if(go){ REC.sec=+go.dataset.go; REC.draft=null; show("rec"); return; }
-  const nb=e.target.closest("#nav button"); if(nb){ show(nb.dataset.v); return; }
+  const go=e.target.closest("[data-go]"); if(go){ REC.sec=+go.dataset.go; REC.draft=null; if(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<todayIso()) REC.form.date=TODAY_VIEW; show("rec"); return; }
+  const nb=e.target.closest("#nav button"); if(nb){ if(nb.dataset.v==="today") TODAY_VIEW=null; show(nb.dataset.v); return; }
   const li=e.target.closest(".lim[data-i]"); if(li){ cycleLim(+li.dataset.n,+li.dataset.i); renderRec(); focusRow(li.dataset.n); return; }
   const si=e.target.closest("[data-simple]"); if(si){ cycleSimple(+si.dataset.simple); renderRec(); focusRow(si.dataset.simple); return; }
   const vd=e.target.closest("[data-void]"); if(vd){ voidEv(vd.dataset.void); return; }
