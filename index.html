@@ -140,6 +140,11 @@ ul.todo li{margin:2px 0}
 .ox i{font-style:normal;margin-right:6px;font-variant-numeric:tabular-nums}
 .ox .o{color:var(--ok)}.ox .t{color:var(--mid)}.ox .x{color:var(--ng)}
 @media (max-width:700px){.sj-head{display:none}.sj summary{grid-template-columns:repeat(4,1fr);font-size:13px;gap:4px 6px}.sj .nm{grid-column:1/-1}.sj summary .muted{display:none}.sj-body{padding-left:0}.sj-sec{grid-template-columns:repeat(4,1fr);font-size:12px;gap:2px 6px}.sj-sec .tt{grid-column:2/-1}.ox i{margin-right:3px}}
+.wt-row{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
+.wt-row:first-of-type{border-top:0}
+.wt-row .wd{width:120px;flex-shrink:0}.wt-row .wm{flex:1;font-weight:700}
+.wt-row .wi{display:flex;gap:6px}.wt-row .wi input{width:80px}
+.wt-row.miss .wd{color:var(--mid);font-weight:700}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -428,7 +433,7 @@ function renderRec(){
   if(!REC.draft || REC.draft.sec!==+REC.sec) REC.draft=newDraft(REC.sec);
   const p=PLAN.find(x=>x.id==REC.sec), st=secState(p.id,REC.round), dr=REC.draft;
   const date=REC.form.date||t;
-  let h=timeCard(date,"rT")+`<div class="card"><h2>記録</h2><div class="grid2">
+  let h=weekTimeCard(date)+`<div class="card"><h2>記録</h2><div class="grid2">
     <div><label class="f">日付</label><input type="date" id="rDate" value="${date}"></div>
     <div><label class="f">周回</label><select id="rRound">${[1,2,3].map(r=>`<option value="${r}" ${r==REC.round?"selected":""}>${r}周目</option>`).join("")}</select></div>
     <div style="grid-column:1/-1"><label class="f">Section</label><select id="rSec">${secOptions(p.id)}</select></div>
@@ -473,6 +478,16 @@ function cycleLim(n,i){
 }
 function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); }
 function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n);} }
+function weekTimeCard(sel){
+  const t=todayIso(), days=[]; for(let i=0;i<7;i++){ const d=parse(t); d.setDate(d.getDate()-i); days.push(iso(d)); }
+  if(sel && !days.includes(sel)) days.push(sel);
+  const rows=days.map(d=>{ const m=S.minByDate[d]||0, has=S.logs.some(e=>e.date===d), pre="wt"+d.replace(/-/g,"");
+    return `<div class="wt-row ${m?"":has?"miss":""}"><span class="wd">${d===t?"今日":jdate(d)}</span>
+      <span class="wm">${m?fmtMin(m):has?'<span class="chip mid">記録あり・時間なし</span>':'<span class="muted">—</span>'}</span>
+      <span class="wi"><input type="number" id="${pre}min" min="0" step="5" inputmode="numeric" placeholder="分"><button class="btn small" data-addtime="${pre}" data-date="${d}">追加</button></span></div>`; }).join("");
+  return `<div class="card"><h2>学習時間 <span class="muted" style="font-weight:400">直近1週間・日ごとの合計（Sectionとは別）</span></h2>${rows}
+    <p class="muted">入れ忘れた日は、その行に分数を入れて「追加」。何回かに分けて足しても大丈夫です。間違えたら下の一覧の「取消」で消せます。1週間より前の日は、下の「日付」をその日にすると、この表に行が出ます。</p></div>`;
+}
 function timeCard(date,pre){
   return `<div class="card"><h2>この日の学習時間 <span class="muted" style="font-weight:400">日ごとの合計で記録（Sectionとは別）</span></h2>
     <div class="row"><div class="stat" style="flex:0 1 200px"><div class="lbl">${jdate(date)}の合計</div><div class="val">${fmtMin(S.minByDate[date])}</div></div>
