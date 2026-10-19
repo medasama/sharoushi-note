@@ -147,6 +147,24 @@ ul.todo li{margin:2px 0}
 .wt-row.miss .wd{color:var(--mid);font-weight:700}
 .daynav{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .daynav .dn-label{flex:1;text-align:center;font-size:15px}
+.rv-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:8px 0}
+.rv-row:first-of-type{border-top:0}
+.rv-main{flex:1;min-width:0}.rv-main small{display:block;color:var(--sub);font-size:12px;margin-top:2px}
+.rv-chk{font-size:13px;margin-top:2px}.rv-chk b{color:var(--ng)}
+.rv-btn{display:flex;gap:6px}.rv-btn .lim{width:44px}
+.sec.s-done{background:var(--ok-soft);border-radius:10px;padding:10px;border-top-color:transparent}
+.sbadge{flex:0 0 56px;height:56px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--none);color:var(--sub);border:2px dashed var(--line)}
+.sbadge.part{background:var(--mid-soft,#fdf1dc);color:var(--mid);border:2px solid var(--mid)}
+.sbadge.done{background:var(--ok);color:#fff;border:0;font-size:22px;line-height:1}
+.sbadge.done small{font-size:11px;margin-top:2px}
+.steps{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.stp{display:flex;gap:8px;align-items:center;border:1.5px dashed var(--line);border-radius:10px;padding:6px 10px;min-width:130px;color:var(--sub);background:var(--panel)}
+.stp .ic{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.stp b{display:block;font-size:13px}.stp small{display:block;font-size:12px}
+.stp.ok{border:1.5px solid var(--ok);background:var(--ok-soft);color:var(--ok)}
+.stp.ok .ic{background:var(--ok);border-color:var(--ok);color:#fff}
+.stp.part{border:1.5px solid var(--mid);color:var(--mid);background:var(--panel)}
+.stp.part .ic{border-color:var(--mid)}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -178,7 +196,7 @@ ul.todo li{margin:2px 0}
 <div id="set" class="drawer hidden"><div class="in">
   <h2 style="margin-top:0">設定</h2>
   <div class="card" id="fsCard"><h2>dataフォルダへの自動保存</h2>
-    <p class="muted">学習フォルダの「社労士試験合格\data」を選ぶと、記録を保存するたびに 演習記録.csv・学習時間.csv・講義視聴.csv が自動で上書きされます（PCのChrome／Edge）。</p>
+    <p class="muted">学習フォルダの「社労士試験合格\data」を選ぶと、記録を保存するたびに 演習記録.csv・学習時間.csv・講義視聴.csv・復習リスト.csv が自動で上書きされます（PCのChrome／Edge）。</p>
     <p class="muted" id="fsDirName">保存先：未設定</p>
     <div class="row"><button class="btn small" id="pickDir">保存先フォルダを選ぶ</button><button class="btn ghost small" id="saveNow">今すぐ保存</button></div></div>
   <div class="card"><h2>手動でダウンロード</h2>
@@ -306,7 +324,7 @@ async function refresh(){
     if(e.message==="WRONG_PASS"){ ls.del("sst_pass"); KEY=null; showLock("合言葉が違う可能性があります。"); return false; }
     $("#sync").textContent="読み込み失敗"; toast("読み込みに失敗しました"); console.error(e);
   }
-  derive(); renderAll(); if(!FS_INIT){ FS_INIT=true; initFs(); } else writeFiles(false); return true;
+  derive(); renderAll(); if(!FS_INIT){ FS_INIT=true; initFs(); pendLoad(); if(!pendEmpty(PEND)||qGet().length){ flushPend().then(ok=>ok&&toast("前回の保存待ちの記録を保存しました")); } } else writeFiles(false); return true;
 }
 
 /* ===== 状態の計算 ===== */
@@ -320,16 +338,18 @@ function derive(){
     for(const it of e.items||[]){
       const k=(it.round||1)+":"+it.sec;
       const s=sec[k]||(sec[k]={read:null,lecture:null,marks:{}});
-      if(it.read) s.read=e.date;
-      if(it.lecture) s.lecture=e.date;
+      if(it.read) s.read=e.date; else if(it.read===false) s.read=null;
+      if(it.lecture) s.lecture=e.date; else if(it.lecture===false) s.lecture=null;
       for(const [n,m] of Object.entries(it.probs||{})) s.marks[n]={...m,date:e.date};
     }
   }
   const times=EVENTS.filter(e=>e.t==="time" && !voided.has(e.id));
   for(const e of times) minByDate[e.date]=(minByDate[e.date]||0)+(+e.minutes||0);
   const lecW={}, lecEv={};
-  for(const e of logs) for(const it of e.items||[]) if(it.lecture && (it.round||1)===1 && !lecW["s"+it.sec]) lecW["s"+it.sec]=e.date;
-  for(const e of EVENTS) if(e.t==="lec" && !voided.has(e.id)){ lecW[e.key]=e.date; lecEv[e.key]=e.id; }
+  for(const e of EVENTS){ if(voided.has(e.id)) continue;
+    if(e.t==="day") for(const it of e.items||[]){ if((it.round||1)!==1) continue; const k="s"+it.sec;
+      if(it.lecture && !lecW[k]) lecW[k]=e.date; else if(it.lecture===false){ delete lecW[k]; delete lecEv[k]; } }
+    if(e.t==="lec"){ lecW[e.key]=e.date; lecEv[e.key]=e.id; } }
   S={logs,minByDate,sec,lecW,lecEv,times};
 }
 const secState=(id,round=1)=>{ const st=S.sec[round+":"+id]||{read:null,lecture:null,marks:{}}; if(round===1 && !st.lecture && S.lecW["s"+id]) return {...st,lecture:S.lecW["s"+id]}; return st; };
@@ -386,17 +406,20 @@ function aheadDays(){
 
 /* ===== 画面 ===== */
 let VIEW="today", REC={sec:null,round:1,simple:false,draft:null,form:{date:null,minutes:"",memo:""}};
-function show(v){ VIEW=v; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
+function show(v){ if(VIEW==="rec" && v!=="rec"){ saveMemo(); if(!pendEmpty(PEND)) flushPend(); } VIEW=v; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
   for(const id of ["all","today","rec","prog"]) $("#v-"+id).classList.toggle("hidden",id!==v); renderAll(); window.scrollTo(0,0); }
 function renderAll(){ if(!S) return; const _y=window.scrollY; const _open=[...document.querySelectorAll("details[open] summary")].map(x=>x.dataset.sj||x.textContent); const _closed=[...document.querySelectorAll("details:not([open]) summary[data-sj]")].map(x=>x.dataset.sj); if(VIEW==="all") renderOverview(); if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); for(const d of document.querySelectorAll("details")){ const t=d.querySelector("summary"); if(!t) continue; const k=t.dataset.sj||t.textContent; if(_open.includes(k)) d.open=true; else if(_closed.includes(k)) d.open=false; } window.scrollTo(0,_y); }
 
 function secLine(p,withBtn=true){
-  const st=secState(p.id), done=Object.keys(st.marks).length, ld=lecDate(p), t=todayIso();
-  const lecTxt = st.lecture? '<span class="chip ok">講義 済</span>' : (ld && ld<=t ? '<span class="chip">講義 配信済み（目安）</span>' : '<span class="chip">講義 '+esc(lecLabel(p))+'配信予定</span>');
-  return `<div class="sec"><div class="main">
+  const st=secState(p.id), done=Math.min(Object.keys(st.marks).length,qn(p)), ld=lecDate(p), t=todayIso(), stt=status(p);
+  const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
+  const lecOk=!!st.lecture, lecRel=ld&&ld<=t;
+  const step=(ok,part,lbl,val)=>`<div class="stp ${ok?"ok":part?"part":""}"><span class="ic">${ok?"✓":part?"…":""}</span><span><b>${lbl}</b><small>${val}</small></span></div>`;
+  const badge=stt==="done"?'<span class="sbadge done">✓<small>完了</small></span>':stt==="part"?'<span class="sbadge part">途中</span>':'<span class="sbadge">未着手</span>';
+  return `<div class="sec s-${stt}">${badge}<div class="main">
     <div class="ttl">${esc(p.s)} Sec${p.k}　${esc(p.t)}</div>
     <div class="muted">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}${p.q1>p.q0?"〜"+p.q1:""}（${qn(p)}問）／予定 ${jdate(p.d0).replace(/（.）/,"")}${p.d1!==p.d0?"〜"+jdate(p.d1).replace(/（.）/,""):""}</div>
-    <div style="margin-top:4px"><span class="chip ${st.read?"ok":""}">教科書 ${st.read?"済":"未"}</span>${lecTxt}<span class="chip ${done>=qn(p)?"ok":done?"mid":""}">問題 ${done}/${qn(p)}</span></div>
+    <div class="steps">${step(!!st.read,false,"教科書",st.read?"読んだ "+md(st.read):"まだ")}${step(lecOk,false,"講義",lecOk?"見た "+md(st.lecture):lecRel?"配信済み・まだ":esc(lecLabel(p))+"配信")}${step(done>=qn(p),done>0,"問題",done+" / "+qn(p)+"問"+(done&&done<qn(p)?"（あと"+(qn(p)-done)+"問）":""))}</div>
   </div>${withBtn?`<button class="btn small" data-go="${p.id}">記録する</button>`:""}</div>`;
 }
 let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
@@ -416,7 +439,7 @@ function renderToday(){
     <div><div class="big">${jdate(t)}${isToday?"":` <span class="chip">${t<real?"過去の日":"これからの日"}</span>`}</div><div class="muted">試験まであと${toExam}日（${EXAM_DATE.slice(5).replace("-","/")}見込み）</div></div>
     <div class="row">${t>real?"":`<div class="stat"><div class="lbl">${isToday?"今日":"この日"}の学習時間</div><div class="val">${fmtMin(S.minByDate[t])}</div>${t<=real?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input type="number" id="tTmin" min="0" step="5" inputmode="numeric" placeholder="分" style="width:80px"><button class="btn small" data-addtime="tT" data-date="${t}">追加</button></div>`:""}</div>`}
     ${isToday?`<div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div></div>`:""}</div></div></div>`;
-  if(isToday) h+=timerHtml();
+  if(isToday) h+=timerHtml()+reviewCard(t);
   h+=`<div class="card"><h2>${isToday?"今日":"この日"}の範囲</h2>`;
   if(d.getDay()===0 && !todays.length) h+=`<p>${isToday?"今日":"この日"}は予備日です。遅れている範囲や復習に使ってください。</p>`;
   else if(!todays.length) h+=`<p class="muted">この日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
@@ -424,7 +447,7 @@ function renderToday(){
     h+=todays.map(p=>secLine(p)).join(""); }
   h+=`</div>`;
   if(t<=real){ const dl=S.logs.filter(e=>e.date===t), dt=S.times.filter(e=>e.date===t);
-    const items=dl.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);const n=Object.keys(it.probs||{}).length;return esc(q.s+" Sec"+q.k)+(it.read?" 教科書":"")+(it.lecture?" 講義":"")+(n?" 問題"+n+"問":"");}));
+    const items=dl.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);const n=Object.keys(it.probs||{}).length;return esc(q.s+" Sec"+q.k)+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(n?" 問題"+n+"問":"");}));
     h+=`<div class="card"><h2>${isToday?"今日":"この日"}の記録</h2>${items.length||dt.length?`<p>${items.join("、")||"（Sectionの記録なし）"}</p>${dt.length?`<p class="muted">学習時間：${dt.map(e=>fmtMin(e.minutes)+(e.from?"（"+e.from+"〜"+e.to+"）":"")).join("、")}</p>`:""}`:`<p class="muted">記録はありません。</p>`}
       <button class="btn ghost small" data-recday="${t}">この日の記録を入れる・直す</button></div>`; }
   if(isToday){
@@ -444,7 +467,7 @@ function secOptions(sel){
 function newDraft(id){
   const p=PLAN.find(x=>x.id==id), st=secState(id,REC.round), marks={};
   for(let n=p.q0;n<=p.q1;n++) if(st.marks[n]) marks[n]={...st.marks[n]};
-  return {sec:+id, read:false, lecture:false, marks, touched:new Set()};
+  return {sec:+id, read:!!st.read, lecture:!!st.lecture, marks, touched:new Set()};
 }
 function renderRec(){
   const t=todayIso();
@@ -480,23 +503,23 @@ function renderRec(){
   }
   h+=`</div><p class="muted">行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span> で肢を切替、<span class="kbd">0</span> で「解いた」。</p></div>`;
   h+=`<div class="card"><label class="f">メモ（任意）</label><textarea id="rMemo" placeholder="気づいたこと、弱点ノートに回したい論点など">${esc(REC.form.memo)}</textarea>
-    <div style="margin-top:10px" class="row"><button class="btn" id="save">保存</button><span class="muted" id="dirty"></span></div></div>`;
+    <div style="margin-top:10px" class="row"><span class="muted" id="dirty"></span><button class="btn ghost small" id="save">今すぐ保存</button></div><p class="muted">チェックや○△×は、押したそばから自動で保存されます（数秒後に本番へ）。メモは入力欄から離れたときに保存されます。</p></div>`;
   const dl=S.logs.filter(e=>e.date===date);
   const dtimes=S.times.filter(e=>e.date===date);
-  h+=`<div class="card"><h2>${jdate(date)}の記録</h2><div class="loglist">${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":"")+(it.lecture?" 講義":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
+  const vset=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), drevs=EVENTS.filter(e=>e.t==="rev"&&e.date===date&&!vset.has(e.id));
+  h+=`<div class="card"><h2>${jdate(date)}の記録</h2><div class="loglist">${drevs.map(e=>{const q=PLAN.find(x=>x.id===e.sec);return `<div><span>復習 ${esc(q.s)} Sec${q.k} 問${e.n}　${sym(e.r)}</span><span style="flex:1"></span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`}).join("")}${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length||drevs.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
   $("#v-rec").innerHTML=h;
-  updDirty();
+  updAuto();
 }
-function updDirty(){ const n=REC.draft?REC.draft.touched.size:0; const el=$("#dirty"); if(el) el.textContent=n?`未保存の問題 ${n}問`:""; }
 function cycleLim(n,i){
   const p=PLAN.find(x=>x.id==REC.sec), dr=REC.draft;
   let m=dr.marks[n];
   let c=(m&&m.c)? m.c.split("") : ["o","o","o","o","o"];
   if(m&&m.c){ c[i]={o:"x",x:"t",t:"o"}[c[i]]; } else { c[i]="x"; }
-  dr.marks[n]={c:c.join("")}; dr.touched.add(n);
+  dr.marks[n]={c:c.join("")}; dr.touched.add(n); pendProb(n);
 }
-function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); }
-function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n);} }
+function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); pendProb(n); }
+function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n); pendProb(n);} }
 function weekTimeCard(sel){
   const t=todayIso(), days=[]; for(let i=0;i<7;i++){ const d=parse(t); d.setDate(d.getDate()-i); days.push(iso(d)); }
   if(sel && !days.includes(sel)) days.push(sel);
@@ -521,16 +544,107 @@ async function addTime(pre,date){
   const ev={t:"time",id:uid(),ts:Date.now(),date,minutes};
   try{ await store.add(ev); EVENTS.push(ev); derive(); toast("学習時間を追加しました（"+fmtMin(minutes)+"）"); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
 }
-async function save(){
-  const dr=REC.draft, date=REC.form.date||todayIso();
-  const read=$("#rRead").checked, lecture=$("#rLec").checked, memo=$("#rMemo").value.trim();
-  const probs={}; for(const n of dr.touched) probs[n]={...dr.marks[n]};
-  if(!read && !lecture && !Object.keys(probs).length && !memo){ toast("記録する内容がありません"); return; }
-  const ev={t:"day",id:uid(),ts:Date.now(),date,minutes:0,memo,items:[{sec:dr.sec,round:REC.round,read,lecture,probs}]};
-  $("#save").disabled=true;
-  try{ await store.add(ev); EVENTS.push(ev); derive(); REC.draft=null; REC.form.memo=""; toast("保存しました"); renderRec(); writeFiles(false); }
-  catch(e){ console.error(e); toast("保存に失敗しました"); $("#save").disabled=false; }
+/* ===== 復習リスト =====
+   ×か△を付けた問題を、7日後→（○なら）21日後に出す。21日後も○なら卒業。途中で×か△なら7日後からやり直し。
+   解き直すのは×と△の肢だけ。1日の上限は10問（超えた分は古い順に翌日以降へ）。
+   記録画面での判定（同じ日に何度か直したら最後のもの）と、復習での判定（rev）を時系列で見る。 */
+const REV_INT=[7,21], REV_CAP=10;
+const addDays=(d,n)=>{ const x=parse(d); x.setDate(x.getDate()+n); return iso(x); };
+function reviewState(){
+  const voided=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), tl={};
+  for(const e of EVENTS){ if(voided.has(e.id)) continue;
+    if(e.t==="day") for(const it of e.items||[]) for(const [n,m] of Object.entries(it.probs||{})){ const k=it.sec+":"+n, a=tl[k]||(tl[k]=[]), r=judge(m);
+      const last=a[a.length-1]; const x={date:e.date,r,src:"rec",m};
+      if(last&&last.src==="rec"&&last.date===e.date) a[a.length-1]=x; else a.push(x); }
+    if(e.t==="rev"){ const k=e.sec+":"+e.n; (tl[k]||(tl[k]=[])).push({date:e.date,r:e.r,src:"rev",id:e.id}); } }
+  const out=[];
+  for(const [k,a] of Object.entries(tl)){ let act=false, stage=0, due=null, bad=null, m=null, grad=null;
+    for(const x of a){ if(x.m) m=x.m;
+      if(x.r==="x"||x.r==="t"){ act=true; stage=0; due=addDays(x.date,REV_INT[0]); bad=x; grad=null; }
+      else if(act){ stage++; if(stage>=REV_INT.length){ act=false; grad=x.date; } else due=addDays(x.date,REV_INT[stage]); } }
+    if(!bad) continue; const [sec,n]=k.split(":").map(Number);
+    out.push({k,sec,n,p:PLAN.find(q=>q.id===sec),act,stage,due,bad,m,grad,hist:a}); }
+  return out.sort((x,y)=>(x.due||"").localeCompare(y.due||"")||x.sec-y.sec||x.n-y.n);
 }
+const RS={extra:0};
+function reviewCard(t){
+  const all=reviewState(), act=all.filter(r=>r.act), due=act.filter(r=>r.due<=t), soon=act.filter(r=>r.due>t), grad=all.filter(r=>!r.act).length;
+  const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
+  const row=r=>{ const c=r.m&&r.m.c?r.m.c:"", lim=c?c.split("").map(sym).join(""):"";
+    const chk=c?c.split("").map((v,i)=>v!=="o"?LIM[i]+sym(v):"").filter(Boolean).join("・"):"";
+    return `<div class="rv-row"><div class="rv-main"><b>${esc(r.p.s)} Sec${r.p.k} 問${r.n}</b> <span class="muted">${esc(r.p.t)}</span>
+      ${chk?`<div class="rv-chk">確認する肢：<b>${chk}</b></div>`:`<div class="rv-chk">問題全体を解き直す（簡易入力の記録）</div>`}
+      <small>前回 <span class="res ${r.bad.r}">${sym(r.bad.r)}</span> ${md(r.bad.date)}${lim?"（肢 "+lim+"）":""}・${r.stage+1}回目の解き直し（全${REV_INT.length}回）・教科書 p.${r.p.p0}〜${r.p.p1}${r.due<t?` ・<span style="color:var(--ng)">予定 ${md(r.due)}</span>`:""}</small></div>
+      <div class="rv-btn"><button class="lim o" data-rev="${r.k}" data-r="o">○</button><button class="lim t" data-rev="${r.k}" data-r="t">△</button><button class="lim x" data-rev="${r.k}" data-r="x">×</button></div></div>`; };
+  let h=`<div class="card" id="revCard"><h2>今日の復習 ${due.length?`<span class="chip mid">${Math.min(due.length,REV_CAP+RS.extra)}問</span>`:`<span class="chip ok">なし</span>`}</h2>`;
+  if(due.length){ const cap=REV_CAP+RS.extra, show=due.slice(0,cap); h+=show.map(row).join("");
+    if(due.length>show.length) h+=`<p class="muted" style="margin-top:8px">上限（1日${REV_CAP}問）を超えた${due.length-show.length}問は、明日以降に回ります（古い順）。<button class="btn ghost small" data-revfull="1">余裕があるので、あと${Math.min(REV_CAP,due.length-show.length)}問解く</button></p>`; }
+  else h+=`<p class="muted">今日解き直す問題はありません。</p>`;
+  const wk={}; for(const r of soon){ wk[r.due]=(wk[r.due]||0)+1; }
+  const next=Object.entries(wk).slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
+  h+=`<p class="muted" style="margin-top:8px">解き直して ○・△・× を押すと記録されます（○なら次は${REV_INT[1]}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度）。</p>
+    <p class="muted">これからの復習：${next||"なし"}${grad?`　／卒業 ${grad}問`:""}</p>`;
+  if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="muted">次回 ${md(r.due)}</span></div>`).join("")}</div></details>`;
+  return h+`</div>`;
+}
+async function addRev(k,r){
+  const [sec,n]=k.split(":").map(Number), ev={t:"rev",id:uid(),ts:Date.now(),date:todayIso(),sec,n,r};
+  try{ await store.add(ev); EVENTS.push(ev); derive(); toast(`問${n}：${sym(r)}を記録しました`); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
+}
+function revRows(){ const md=d=>d?d:""; return [["科目","Section","問題番号","状態","次回","履歴"],...reviewState().map(r=>[r.p.s,r.p.k,r.n,r.act?"復習中（"+(r.stage+1)+"回目）":"卒業",r.act?r.due:"",r.hist.map(x=>x.date+(x.src==="rev"?"復習":"")+sym(x.r)).join(" → ")])]; }
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-rev]"); if(b){ b.disabled=true; addRev(b.dataset.rev,b.dataset.r); return; }
+  if(e.target.closest("[data-revfull]")){ RS.extra+=REV_CAP; renderAll(); }
+});
+
+/* ===== 記録の自動保存 =====
+   変更はまず「保存待ち（PEND）」にため、この端末にも即保存。操作が4秒止まったら・Sectionや日付を変えたら・画面を離れたら本番に保存する。
+   保存できなかった分は、次に開いたときに自動で送る（同じIDは二重に保存しない）。 */
+const PEND_KEY="sst_pend";
+let PEND=null, PEND_T=null, PEND_BUSY=null, LAST_AUTO=null;
+function pendLoad(){ try{ PEND=JSON.parse(ls.get(PEND_KEY)||"null"); }catch(e){ PEND=null; } }
+function pendStore(){ if(PEND) ls.set(PEND_KEY,JSON.stringify(PEND)); else ls.del(PEND_KEY); }
+function pendGet(){ const date=REC.form.date||todayIso();
+  if(PEND && (PEND.date!==date || PEND.round!==REC.round || PEND.sec!==REC.draft.sec)) flushPend();
+  if(!PEND) PEND={id:uid(),date,round:REC.round,sec:REC.draft.sec,probs:{},memo:""};
+  return PEND; }
+function pendChanged(){ pendStore(); clearTimeout(PEND_T); PEND_T=setTimeout(()=>flushPend(),4000); updAuto(); }
+function pendProb(n){ const P=pendGet(); P.probs[n]={...REC.draft.marks[n]}; pendChanged(); }
+function pendFlag(k,v){ const P=pendGet(); P[k]=v; pendChanged(); }
+function pendEmpty(P){ return !P || (!Object.keys(P.probs).length && P.read===undefined && P.lecture===undefined && !P.memo); }
+const Q_KEY="sst_queue";
+function qGet(){ try{ return JSON.parse(ls.get(Q_KEY)||"[]"); }catch(e){ return []; } }
+function qSet(q){ if(q.length) ls.set(Q_KEY,JSON.stringify(q)); else ls.del(Q_KEY); }
+async function flushPend(){
+  clearTimeout(PEND_T);
+  const P=PEND; PEND=null; pendStore();
+  if(!pendEmpty(P)){ const q=qGet(); q.push(P); qSet(q); }
+  if(PEND_BUSY) await PEND_BUSY;
+  PEND_BUSY=(async()=>{ let q=qGet(), ok=true, sent=0;
+    while(q.length){ const X=q[0];
+      if(!EVENTS.some(e=>e.id===X.id)){
+        const it={sec:X.sec,round:X.round,probs:X.probs}; if(X.read!==undefined) it.read=X.read; if(X.lecture!==undefined) it.lecture=X.lecture;
+        const ev={t:"day",id:X.id,ts:Date.now(),date:X.date,minutes:0,memo:X.memo||"",items:[it],auto:1};
+        try{ await store.add(ev); EVENTS.push(ev); sent++; }catch(e){ console.error(e); ok=false; break; } }
+      q.shift(); qSet(q); }
+    if(sent){ derive(); LAST_AUTO=new Date(); writeFiles(false); }
+    if(!ok){ PEND_T=setTimeout(()=>flushPend(),15000); toast("自動保存に失敗しました。あとで再送します"); }
+    return {ok,sent}; })();
+  const r=await PEND_BUSY; PEND_BUSY=null; updAuto();
+  if(r.sent){ if(VIEW!=="rec") renderAll(); else refreshRecList(); }
+  return r.ok;
+}
+function updAuto(){ const el=$("#dirty"); if(!el) return;
+  el.textContent = (!pendEmpty(PEND)||qGet().length)? "保存待ち…（数秒で自動保存）" : (LAST_AUTO? "自動保存済み "+pad(LAST_AUTO.getHours())+":"+pad(LAST_AUTO.getMinutes()) : "変更は自動で保存されます"); }
+function refreshRecList(){ const f=document.activeElement, n=f&&f.closest&&f.closest(".prow")?f.closest(".prow").dataset.n:null, inMemo=f&&f.id==="rMemo";
+  if(inMemo){ updAuto(); return; } renderRec(); if(n) focusRow(n); }
+function saveMemo(){ const el=$("#rMemo"); if(!el||!REC.draft) return; const v=el.value.trim(); if(!v) return;
+  const P=pendGet(); P.memo=(P.memo?P.memo+"／":"")+v; REC.form.memo=""; el.value=""; pendStore(); flushPend(); }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"){ if(VIEW==="rec") saveMemo(); if(!pendEmpty(PEND)) flushPend(); } });
+window.addEventListener("pagehide",()=>{ pendStore(); if(!pendEmpty(PEND)) flushPend(); });
+document.addEventListener("focusout",e=>{ if(e.target.id==="rMemo") saveMemo(); });
+
+async function save(){ saveMemo(); if(pendEmpty(PEND)){ toast(LAST_AUTO?"保存済みです":"記録する内容がありません"); return; } if(await flushPend()) toast("保存しました"); }
 async function voidEv(id){
   if(!confirm("この記録を取り消しますか？（取消の記録が追加されます）")) return;
   const ev={t:"void",id:uid(),ts:Date.now(),target:id};
@@ -737,7 +851,7 @@ async function writeFiles(ask){
   FS_BUSY=(async()=>{ try{
     FS_STATE=await fsPerm(ask);
     if(FS_STATE!=="granted"){ updFs(); return false; }
-    for(const [name,rows] of [["演習記録.csv",probRows()],["学習時間.csv",timeRows()],["講義視聴.csv",lecRows()]]){
+    for(const [name,rows] of [["演習記録.csv",probRows()],["学習時間.csv",timeRows()],["講義視聴.csv",lecRows()],["復習リスト.csv",revRows()]]){
       const fh=await DIR.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(csvText(rows)); await w.close(); }
     LAST_SAVED=new Date(); updFs(); return true;
   }catch(e){ console.error(e); toast("dataフォルダへの保存に失敗しました"); updFs(); return false; } })();
@@ -843,12 +957,12 @@ document.addEventListener("click",e=>{
   if(e.target.id==="save"){ save(); return; }
 });
 document.addEventListener("change",e=>{
-  if(e.target.id==="rSec"){ if(REC.draft&&REC.draft.touched.size&&!confirm("未保存の問題の記録があります。破棄して切り替えますか？")){ e.target.value=REC.sec; return; } REC.sec=+e.target.value; REC.draft=null; renderRec(); }
-  if(e.target.id==="rRound"){ REC.round=+e.target.value; REC.draft=null; renderRec(); }
+  if(e.target.id==="rSec"){ saveMemo(); flushPend(); REC.sec=+e.target.value; REC.draft=null; renderRec(); }
+  if(e.target.id==="rRound"){ saveMemo(); flushPend(); REC.round=+e.target.value; REC.draft=null; renderRec(); }
   if(e.target.id==="rSimple"){ REC.simple=e.target.checked; renderRec(); }
-  if(e.target.id==="rRead"&&REC.draft) REC.draft.read=e.target.checked;
-  if(e.target.id==="rLec"&&REC.draft) REC.draft.lecture=e.target.checked;
-  if(e.target.id==="rDate"){ REC.form.date=e.target.value; renderRec(); }
+  if(e.target.id==="rRead"&&REC.draft){ REC.draft.read=e.target.checked; pendFlag("read",e.target.checked); }
+  if(e.target.id==="rLec"&&REC.draft){ REC.draft.lecture=e.target.checked; pendFlag("lecture",e.target.checked); }
+  if(e.target.id==="rDate"){ saveMemo(); flushPend(); REC.form.date=e.target.value; REC.draft=null; renderRec(); }
 });
 document.addEventListener("input",e=>{
   if(e.target.id==="rMemo") REC.form.memo=e.target.value;
@@ -861,7 +975,7 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="0"){ e.preventDefault(); markDone(n); renderRec(); focusRow(n); }
   else if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); const sib=e.key==="ArrowDown"?row.nextElementSibling:row.previousElementSibling; if(sib&&sib.classList.contains("prow")) sib.focus(); }
 });
-window.addEventListener("beforeunload",e=>{ if(REC.draft&&REC.draft.touched.size){ e.preventDefault(); e.returnValue=""; } });
+window.addEventListener("beforeunload",()=>{ pendStore(); if(!pendEmpty(PEND)||qGet().length) flushPend(); });
 $("#openSet").onclick=()=>{ $("#set").classList.remove("hidden"); };
 $("#closeSet").onclick=()=>$("#set").classList.add("hidden");
 $("#set").onclick=e=>{ if(e.target.id==="set") $("#set").classList.add("hidden"); };
