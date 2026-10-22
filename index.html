@@ -151,6 +151,9 @@ ul.todo li{margin:2px 0}
 .rv-row:first-of-type{border-top:0}
 .rv-main{flex:1;min-width:0}.rv-main small{display:block;color:var(--sub);font-size:12px;margin-top:2px}
 .rv-chk{font-size:13px;margin-top:2px}.rv-chk b{color:var(--ng)}
+.rv-row.done .rv-main>b{color:var(--ok)}.rv-done{display:block;font-size:12px;margin-top:2px;color:var(--ok)}
+.rv-btn .lim.dim{opacity:.35;background:var(--panel);color:var(--sub);border-color:var(--line)}.rv-btn .lim.sel{outline:2px solid currentColor;outline-offset:1px}
+.rv-btn.lims{flex-direction:column;gap:4px}.rv-l{display:flex;gap:4px;align-items:center}.rv-l .ll{width:16px;font-weight:700;color:var(--sub);font-size:13px}.rv-l .lim{width:36px;height:30px}
 .rv-btn{display:flex;gap:6px}.rv-btn .lim{width:44px}
 .sec.s-done{background:var(--ok-soft);border-radius:10px;padding:10px;border-top-color:transparent}
 .sbadge{flex:0 0 56px;height:56px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--none);color:var(--sub);border:2px dashed var(--line)}
@@ -556,7 +559,7 @@ function reviewState(){
     if(e.t==="day") for(const it of e.items||[]) for(const [n,m] of Object.entries(it.probs||{})){ const k=it.sec+":"+n, a=tl[k]||(tl[k]=[]), r=judge(m);
       const last=a[a.length-1]; const x={date:e.date,r,src:"rec",m};
       if(last&&last.src==="rec"&&last.date===e.date) a[a.length-1]=x; else a.push(x); }
-    if(e.t==="rev"){ const k=e.sec+":"+e.n; (tl[k]||(tl[k]=[])).push({date:e.date,r:e.r,src:"rev",id:e.id}); } }
+    if(e.t==="rev"){ const k=e.sec+":"+e.n; (tl[k]||(tl[k]=[])).push({date:e.date,r:e.r,src:"rev",id:e.id,lim:e.lim||null}); } }
   const out=[];
   for(const [k,a] of Object.entries(tl)){ let act=false, stage=0, due=null, bad=null, m=null, grad=null;
     for(const x of a){ if(x.m) m=x.m;
@@ -568,32 +571,57 @@ function reviewState(){
 }
 const RS={extra:0};
 function reviewCard(t){
-  const all=reviewState(), act=all.filter(r=>r.act), due=act.filter(r=>r.due<=t), soon=act.filter(r=>r.due>t), grad=all.filter(r=>!r.act).length;
+  const all=reviewState(), act=all.filter(r=>r.act), grad=all.filter(r=>!r.act).length;
+  const lastRev=r=>{ const x=r.hist[r.hist.length-1]; return x&&x.src==="rev"&&x.date===t?x:null; };
+  const done=all.filter(r=>lastRev(r));                       // 今日解き直して記録済み
+  const due=act.filter(r=>r.due<=t && !lastRev(r));           // まだの問題（古い順）
+  const soon=act.filter(r=>r.due>t);
   const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
-  const row=r=>{ const c=r.m&&r.m.c?r.m.c:"", lim=c?c.split("").map(sym).join(""):"";
+  const btns=(r,sel)=>["o","t","x"].map(v=>`<button class="lim ${v} ${sel?(sel===v?"sel":"dim"):""}" data-rev="${r.k}" data-r="${v}">${sym(v)}</button>`).join("");
+  const limBtns=(r,targets,lr)=>{ const cur=lr&&lr.lim?lr.lim:(RSEL[r.k]||{});
+    return targets.map(i=>`<div class="rv-l"><span class="ll">${LIM[i]}</span>${["o","t","x"].map(v=>`<button class="lim ${v} ${cur[i]?(cur[i]===v?"sel":"dim"):""}" data-rl="${r.k}|${i}|${v}">${sym(v)}</button>`).join("")}</div>`).join(""); };
+  const row=r=>{ const c=r.m&&r.m.c?r.m.c:"", lim=c?c.split("").map(sym).join(""):"", lr=lastRev(r);
     const chk=c?c.split("").map((v,i)=>v!=="o"?LIM[i]+sym(v):"").filter(Boolean).join("・"):"";
-    return `<div class="rv-row"><div class="rv-main"><b>${esc(r.p.s)} Sec${r.p.k} 問${r.n}</b> <span class="muted">${esc(r.p.t)}</span>
-      ${chk?`<div class="rv-chk">確認する肢：<b>${chk}</b></div>`:`<div class="rv-chk">問題全体を解き直す（簡易入力の記録）</div>`}
-      <small>前回 <span class="res ${r.bad.r}">${sym(r.bad.r)}</span> ${md(r.bad.date)}${lim?"（肢 "+lim+"）":""}・${r.stage+1}回目の解き直し（全${REV_INT.length}回）・教科書 p.${r.p.p0}〜${r.p.p1}${r.due<t?` ・<span style="color:var(--ng)">予定 ${md(r.due)}</span>`:""}</small></div>
-      <div class="rv-btn"><button class="lim o" data-rev="${r.k}" data-r="o">○</button><button class="lim t" data-rev="${r.k}" data-r="t">△</button><button class="lim x" data-rev="${r.k}" data-r="x">×</button></div></div>`; };
-  let h=`<div class="card" id="revCard"><h2>今日の復習 ${due.length?`<span class="chip mid">${Math.min(due.length,REV_CAP+RS.extra)}問</span>`:`<span class="chip ok">なし</span>`}</h2>`;
-  if(due.length){ const cap=REV_CAP+RS.extra, show=due.slice(0,cap); h+=show.map(row).join("");
-    if(due.length>show.length) h+=`<p class="muted" style="margin-top:8px">上限（1日${REV_CAP}問）を超えた${due.length-show.length}問は、明日以降に回ります（古い順）。<button class="btn ghost small" data-revfull="1">余裕があるので、あと${Math.min(REV_CAP,due.length-show.length)}問解く</button></p>`; }
+    const info=lr? `<small class="rv-done">今日 <b>${sym(lr.r)}</b>${lr.lim?"（"+Object.entries(lr.lim).map(([i,v])=>LIM[i]+sym(v)).join("・")+"）":""} を記録 → ${r.act?"次は "+md(r.due)+"（"+(r.stage+1)+"回目）":"卒業"}　<span class="muted">間違えたら別の印を押すと付け直せます</span></small>`
+      : `<small>前回 <span class="res ${r.bad.r}">${sym(r.bad.r)}</span> ${md(r.bad.date)}${lim?"（肢 "+lim+"）":""}・${r.stage+1}回目の解き直し（全${REV_INT.length}回）・教科書 p.${r.p.p0}〜${r.p.p1}${r.due<t?` ・<span style="color:var(--ng)">予定 ${md(r.due)}</span>`:""}</small>`;
+    return `<div class="rv-row ${lr?"done":""}"><div class="rv-main"><b>${lr?"✓ ":""}${esc(r.p.s)} Sec${r.p.k} 問${r.n}</b> <span class="muted">${esc(r.p.t)}</span>
+      ${lr?"":chk?`<div class="rv-chk">確認する肢：<b>${chk}</b></div>`:`<div class="rv-chk">問題全体を解き直す（簡易入力の記録）</div>`}
+      ${info}</div><div class="rv-btn ${c?"lims":""}">${c?limBtns(r,c.split("").map((v,i)=>v!=="o"?i:-1).filter(i=>i>=0),lr):btns(r,lr&&lr.r)}</div></div>`; };
+  const cap=Math.max(0,REV_CAP+RS.extra-done.length), show=due.slice(0,cap), rest=due.length-show.length;
+  const total=show.length+done.length;
+  let h=`<div class="card" id="revCard"><h2>今日の復習 ${total?`<span class="chip ${show.length?"mid":"ok"}">${done.length} / ${total}問 済</span>`:`<span class="chip ok">なし</span>`}</h2>`;
+  if(total){ h+=show.map(row).join("")+done.map(row).join("");
+    if(!show.length) h+=`<p style="margin-top:8px;color:var(--ok);font-weight:700">今日の分は終わりました。</p>`;
+    if(rest>0) h+=`<p class="muted" style="margin-top:8px">上限（1日${REV_CAP}問）を超えた${rest}問は、明日以降に回ります（古い順）。<button class="btn ghost small" data-revfull="1">余裕があるので、あと${Math.min(REV_CAP,rest)}問解く</button></p>`; }
   else h+=`<p class="muted">今日解き直す問題はありません。</p>`;
   const wk={}; for(const r of soon){ wk[r.due]=(wk[r.due]||0)+1; }
-  const next=Object.entries(wk).slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
-  h+=`<p class="muted" style="margin-top:8px">解き直して ○・△・× を押すと記録されます（○なら次は${REV_INT[1]}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度）。</p>
+  const next=Object.entries(wk).sort().slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
+  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になって今日の一覧の下に残ります（明日は出ません）。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT[1]}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。</p>
     <p class="muted">これからの復習：${next||"なし"}${grad?`　／卒業 ${grad}問`:""}</p>`;
   if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="muted">次回 ${md(r.due)}</span></div>`).join("")}</div></details>`;
   return h+`</div>`;
 }
-async function addRev(k,r){
-  const [sec,n]=k.split(":").map(Number), ev={t:"rev",id:uid(),ts:Date.now(),date:todayIso(),sec,n,r};
-  try{ await store.add(ev); EVENTS.push(ev); derive(); toast(`問${n}：${sym(r)}を記録しました`); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
+const RSEL={}; // 肢ごとの入力途中（全部の肢がそろったら記録）
+async function addRev(k,r,lim){
+  const t=todayIso(), st=reviewState().find(x=>x.k===k), last=st&&st.hist[st.hist.length-1];
+  const prev=last&&last.src==="rev"&&last.date===t?last:null;
+  if(prev&&prev.r===r&&JSON.stringify(prev.lim||null)===JSON.stringify(lim||null)){ renderAll(); return; } // 同じなら何もしない
+  const [sec,n]=k.split(":").map(Number), ev={t:"rev",id:uid(),ts:Date.now(),date:t,sec,n,r}; if(lim) ev.lim=lim;
+  try{
+    if(prev){ const v={t:"void",id:uid(),ts:Date.now(),target:prev.id}; await store.add(v); EVENTS.push(v); }
+    ev.ts=Date.now(); await store.add(ev); EVENTS.push(ev); derive(); toast(`問${n}：${sym(r)}を${prev?"付け直しました":"記録しました"}`); renderAll(); writeFiles(false);
+  }catch(e){ toast("保存に失敗しました"); renderAll(); }
 }
 function revRows(){ const md=d=>d?d:""; return [["科目","Section","問題番号","状態","次回","履歴"],...reviewState().map(r=>[r.p.s,r.p.k,r.n,r.act?"復習中（"+(r.stage+1)+"回目）":"卒業",r.act?r.due:"",r.hist.map(x=>x.date+(x.src==="rev"?"復習":"")+sym(x.r)).join(" → ")])]; }
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-rev]"); if(b){ b.disabled=true; addRev(b.dataset.rev,b.dataset.r); return; }
+  const bl=e.target.closest("[data-rl]"); if(bl){ const [k,i,v]=bl.dataset.rl.split("|"); const st=reviewState().find(x=>x.k===k); if(!st) return;
+    const t=todayIso(), last=st.hist[st.hist.length-1], prev=last&&last.src==="rev"&&last.date===t?last:null;
+    const targets=(st.m&&st.m.c?st.m.c:"").split("").map((x,j)=>x!=="o"?j:-1).filter(j=>j>=0);
+    const cur={...(prev&&prev.lim?prev.lim:(RSEL[k]||{}))}; cur[i]=v;
+    if(targets.every(j=>cur[j])){ delete RSEL[k]; const vals=targets.map(j=>cur[j]); const res=vals.includes("x")?"x":vals.includes("t")?"t":"o"; addRev(k,res,cur); }
+    else { RSEL[k]=cur; renderAll(); }
+    return; }
   if(e.target.closest("[data-revfull]")){ RS.extra+=REV_CAP; renderAll(); }
 });
 
