@@ -164,10 +164,20 @@ ul.todo li{margin:2px 0}
 .stp{display:flex;gap:8px;align-items:center;border:1.5px dashed var(--line);border-radius:10px;padding:6px 10px;min-width:130px;color:var(--sub);background:var(--panel)}
 .stp .ic{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
 .stp b{display:block;font-size:13px}.stp small{display:block;font-size:12px}
+button.stp{font:inherit;text-align:left;cursor:pointer}button.stp:hover{border-color:var(--accent)}
 .stp.ok{border:1.5px solid var(--ok);background:var(--ok-soft);color:var(--ok)}
 .stp.ok .ic{background:var(--ok);border-color:var(--ok);color:#fff}
 .stp.part{border:1.5px solid var(--mid);color:var(--mid);background:var(--panel)}
 .stp.part .ic{border-color:var(--mid)}
+.prow{flex-wrap:wrap}
+.allo{border:1px solid var(--line);background:var(--panel);color:var(--sub);border-radius:7px;font:inherit;font-size:12px;font-weight:700;padding:0 8px;height:30px;cursor:pointer}
+.allo.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.lg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.lg b{font-size:11px;color:var(--sub);padding:0 4px 0 6px}
+.lb{width:28px;height:30px;border:0;border-left:1px solid var(--line);background:var(--panel);color:var(--line);font:inherit;font-weight:700;cursor:pointer}
+.lb:hover{background:var(--bg)}
+.lb.on.o{background:var(--ok);color:#fff}.lb.on.t{background:var(--mid);color:#fff}.lb.on.x{background:var(--ng);color:#fff}
+.lb.o:not(.on){color:color-mix(in srgb,var(--ok) 45%,transparent)}.lb.t:not(.on){color:color-mix(in srgb,var(--mid) 45%,transparent)}.lb.x:not(.on){color:color-mix(in srgb,var(--ng) 45%,transparent)}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -417,14 +427,23 @@ function secLine(p,withBtn=true){
   const st=secState(p.id), done=Math.min(Object.keys(st.marks).length,qn(p)), ld=lecDate(p), t=todayIso(), stt=status(p);
   const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
   const lecOk=!!st.lecture, lecRel=ld&&ld<=t;
-  const step=(ok,part,lbl,val)=>`<div class="stp ${ok?"ok":part?"part":""}"><span class="ic">${ok?"✓":part?"…":""}</span><span><b>${lbl}</b><small>${val}</small></span></div>`;
+  const step=(ok,part,lbl,val,tg)=>`<${tg?`button class="stp tg ${ok?"ok":part?"part":""}" data-tg="${tg}" data-sec="${p.id}" data-on="${ok?1:0}" title="${ok?"押すと取り消し":"押すと済にする"}"`:`div class="stp ${ok?"ok":part?"part":""}"`}><span class="ic">${ok?"✓":part?"…":""}</span><span><b>${lbl}</b><small>${val}</small></span></${tg?"button":"div"}>`;
   const badge=stt==="done"?'<span class="sbadge done">✓<small>完了</small></span>':stt==="part"?'<span class="sbadge part">途中</span>':'<span class="sbadge">未着手</span>';
   return `<div class="sec s-${stt}">${badge}<div class="main">
     <div class="ttl">${esc(p.s)} Sec${p.k}　${esc(p.t)}</div>
     <div class="muted">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}${p.q1>p.q0?"〜"+p.q1:""}（${qn(p)}問）／予定 ${jdate(p.d0).replace(/（.）/,"")}${p.d1!==p.d0?"〜"+jdate(p.d1).replace(/（.）/,""):""}</div>
-    <div class="steps">${step(!!st.read,false,"教科書",st.read?"読んだ "+md(st.read):"まだ")}${step(lecOk,false,"講義",lecOk?"見た "+md(st.lecture):lecRel?"配信済み・まだ":esc(lecLabel(p))+"配信")}${step(done>=qn(p),done>0,"問題",done+" / "+qn(p)+"問"+(done&&done<qn(p)?"（あと"+(qn(p)-done)+"問）":""))}</div>
+    <div class="steps">${step(!!st.read,false,"教科書",st.read?"読んだ "+md(st.read):"まだ（押すと済）","read")}${step(lecOk,false,"講義",lecOk?"見た "+md(st.lecture):(lecRel?"配信済み・まだ":esc(lecLabel(p))+"配信")+"（押すと済）","lecture")}${step(done>=qn(p),done>0,"問題",done+" / "+qn(p)+"問"+(done&&done<qn(p)?"（あと"+(qn(p)-done)+"問）":""))}</div>
   </div>${withBtn?`<button class="btn small" data-go="${p.id}">記録する</button>`:""}</div>`;
 }
+async function toggleStep(sec,kind,on){
+  const real=todayIso(), d=(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<real)?TODAY_VIEW:real;
+  if(on && !confirm((kind==="read"?"教科書":"講義")+"の「済」を取り消しますか？")) return;
+  const it={sec:+sec,round:1,probs:{}}; it[kind]=!on;
+  const ev={t:"day",id:uid(),ts:Date.now(),date:d,minutes:0,memo:"",items:[it]};
+  try{ await store.add(ev); EVENTS.push(ev); derive(); REC.draft=null; toast((kind==="read"?"教科書":"講義")+(on?"を取り消しました":"を済にしました（"+(+d.slice(5,7))+"/"+(+d.slice(8))+"）")); renderAll(); writeFiles(false); }
+  catch(e){ toast("保存に失敗しました"); }
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-tg]"); if(b){ b.disabled=true; toggleStep(b.dataset.sec,b.dataset.tg,b.dataset.on==="1"); } });
 let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
 function renderToday(){
   const real=todayIso(), t=TODAY_VIEW||real, isToday=t===real, d=parse(t), el=$("#v-today");
@@ -472,6 +491,7 @@ function newDraft(id){
   for(let n=p.q0;n<=p.q1;n++) if(st.marks[n]) marks[n]={...st.marks[n]};
   return {sec:+id, read:!!st.read, lecture:!!st.lecture, marks, touched:new Set()};
 }
+let REC_PARTIAL=false;
 function renderRec(){
   const t=todayIso();
   if(!REC.sec){ const p=PLAN.find(p=>p.d0<=t&&t<=p.d1 && status(p)!=="done")||PLAN.find(p=>status(p)!=="done")||PLAN[0]; REC.sec=p.id; }
@@ -499,18 +519,20 @@ function renderRec(){
       h+=`<button class="lim ${m?(m.s||judge(m)):""}" data-simple="${n}" style="width:64px">${m?({o:"○",x:"×",t:"△"}[m.s||judge(m)]):"未"}</button>`;
     } else {
       const c=m&&m.c? m.c : (m&&m.s? null : null);
-      LIM.forEach((L,i)=>{ const v=c?c[i]:(m&&m.s?null:null); h+=`<button class="lim ${v||""}" data-n="${n}" data-i="${i}"><small>${L}</small>${v?({o:"○",x:"×",t:"△"}[v]):"・"}</button>`; });
+      h+=`<button class="allo ${c&&c==="ooooo"?"on":""}" data-allo="${n}" title="全部の肢が○">全○</button>`;
+      LIM.forEach((L,i)=>{ const v=c?c[i]:null; h+=`<span class="lg"><b>${L}</b>${["o","t","x"].map(x=>`<button class="lb ${x} ${v===x?"on":""}" data-n="${n}" data-i="${i}" data-v="${x}">${sym(x)}</button>`).join("")}</span>`; });
       if(m&&m.s) h+=`<span class="muted">簡易：${({o:"○",x:"×",t:"△"}[m.s])}</span>`;
     }
     h+=`<span class="res ${r||""}">${r?({o:"○",x:"×",t:"△"}[r]):""}</span></div>`;
   }
-  h+=`</div><p class="muted">行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span> で肢を切替、<span class="kbd">0</span> で「解いた」。</p></div>`;
+  h+=`</div><p class="muted">肢ごとに ○・△・× を1回押すだけ。まだ印のない問題で1つ押すと、残りの肢は○になります。全部正解なら「全○」。キーボードは行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span> で肢を切替、<span class="kbd">0</span> で全○。</p></div>`;
   h+=`<div class="card"><label class="f">メモ（任意）</label><textarea id="rMemo" placeholder="気づいたこと、弱点ノートに回したい論点など">${esc(REC.form.memo)}</textarea>
     <div style="margin-top:10px" class="row"><span class="muted" id="dirty"></span><button class="btn ghost small" id="save">今すぐ保存</button></div><p class="muted">チェックや○△×は、押したそばから自動で保存されます（数秒後に本番へ）。メモは入力欄から離れたときに保存されます。</p></div>`;
   const dl=S.logs.filter(e=>e.date===date);
   const dtimes=S.times.filter(e=>e.date===date);
   const vset=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), drevs=EVENTS.filter(e=>e.t==="rev"&&e.date===date&&!vset.has(e.id));
-  h+=`<div class="card"><h2>${jdate(date)}の記録</h2><div class="loglist">${drevs.map(e=>{const q=PLAN.find(x=>x.id===e.sec);return `<div><span>復習 ${esc(q.s)} Sec${q.k} 問${e.n}　${sym(e.r)}</span><span style="flex:1"></span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`}).join("")}${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length||drevs.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
+  h+=`<div class="card" id="recList"><h2>${jdate(date)}の記録</h2><div class="loglist">${drevs.map(e=>{const q=PLAN.find(x=>x.id===e.sec);return `<div><span>復習 ${esc(q.s)} Sec${q.k} 問${e.n}　${sym(e.r)}</span><span style="flex:1"></span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`}).join("")}${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length||drevs.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
+  if(REC_PARTIAL && $("#recList")){ const tmp=document.createElement("div"); tmp.innerHTML=h; $("#recList").replaceWith(tmp.querySelector("#recList")); updAuto(); return; }
   $("#v-rec").innerHTML=h;
   updAuto();
 }
@@ -521,6 +543,8 @@ function cycleLim(n,i){
   if(m&&m.c){ c[i]={o:"x",x:"t",t:"o"}[c[i]]; } else { c[i]="x"; }
   dr.marks[n]={c:c.join("")}; dr.touched.add(n); pendProb(n);
 }
+function setLim(n,i,v){ const dr=REC.draft, m=dr.marks[n]; const c=(m&&m.c)? m.c.split("") : ["o","o","o","o","o"]; c[i]=v; dr.marks[n]={c:c.join("")}; dr.touched.add(n); pendProb(n); }
+function setAllO(n){ const dr=REC.draft; dr.marks[n]={c:"ooooo"}; dr.touched.add(n); pendProb(n); }
 function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); pendProb(n); }
 function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n); pendProb(n);} }
 function weekTimeCard(sel){
@@ -582,7 +606,7 @@ function reviewCard(t){
     return targets.map(i=>`<div class="rv-l"><span class="ll">${LIM[i]}</span>${["o","t","x"].map(v=>`<button class="lim ${v} ${cur[i]?(cur[i]===v?"sel":"dim"):""}" data-rl="${r.k}|${i}|${v}">${sym(v)}</button>`).join("")}</div>`).join(""); };
   const row=r=>{ const c=r.m&&r.m.c?r.m.c:"", lim=c?c.split("").map(sym).join(""):"", lr=lastRev(r);
     const chk=c?c.split("").map((v,i)=>v!=="o"?LIM[i]+sym(v):"").filter(Boolean).join("・"):"";
-    const info=lr? `<small class="rv-done">今日 <b>${sym(lr.r)}</b>${lr.lim?"（"+Object.entries(lr.lim).map(([i,v])=>LIM[i]+sym(v)).join("・")+"）":""} を記録 → ${r.act?"次は "+md(r.due)+"（"+(r.stage+1)+"回目）":"卒業"}　<span class="muted">間違えたら別の印を押すと付け直せます</span></small>`
+    const info=lr? `<small class="rv-done">今日 <b>${sym(lr.r)}</b>${lr.lim?"（"+Object.entries(lr.lim).map(([i,v])=>LIM[i]+sym(v)).join("・")+"）":""} を記録 → ${r.act?"次は "+md(r.due)+"（"+(r.stage+1)+"回目）":"卒業"}　<span class="muted">別の印で付け直し、同じ印をもう一度押すと取り消し</span></small>`
       : `<small>前回 <span class="res ${r.bad.r}">${sym(r.bad.r)}</span> ${md(r.bad.date)}${lim?"（肢 "+lim+"）":""}・${r.stage+1}回目の解き直し（全${REV_INT.length}回）・教科書 p.${r.p.p0}〜${r.p.p1}${r.due<t?` ・<span style="color:var(--ng)">予定 ${md(r.due)}</span>`:""}</small>`;
     return `<div class="rv-row ${lr?"done":""}"><div class="rv-main"><b>${lr?"✓ ":""}${esc(r.p.s)} Sec${r.p.k} 問${r.n}</b> <span class="muted">${esc(r.p.t)}</span>
       ${lr?"":chk?`<div class="rv-chk">確認する肢：<b>${chk}</b></div>`:`<div class="rv-chk">問題全体を解き直す（簡易入力の記録）</div>`}
@@ -602,10 +626,15 @@ function reviewCard(t){
   return h+`</div>`;
 }
 const RSEL={}; // 肢ごとの入力途中（全部の肢がそろったら記録）
+async function unRev(prev,k,keep){
+  const v={t:"void",id:uid(),ts:Date.now(),target:prev.id};
+  try{ await store.add(v); EVENTS.push(v); derive(); if(keep) RSEL[k]=keep; toast("取り消しました（今日の復習に戻しました）"); renderAll(); writeFiles(false); }
+  catch(e){ toast("取消に失敗しました"); renderAll(); }
+}
 async function addRev(k,r,lim){
   const t=todayIso(), st=reviewState().find(x=>x.k===k), last=st&&st.hist[st.hist.length-1];
   const prev=last&&last.src==="rev"&&last.date===t?last:null;
-  if(prev&&prev.r===r&&JSON.stringify(prev.lim||null)===JSON.stringify(lim||null)){ renderAll(); return; } // 同じなら何もしない
+  if(prev&&prev.r===r&&!lim&&!prev.lim){ await unRev(prev,k); return; } // 同じ印をもう一度押したら取り消し
   const [sec,n]=k.split(":").map(Number), ev={t:"rev",id:uid(),ts:Date.now(),date:t,sec,n,r}; if(lim) ev.lim=lim;
   try{
     if(prev){ const v={t:"void",id:uid(),ts:Date.now(),target:prev.id}; await store.add(v); EVENTS.push(v); }
@@ -618,6 +647,8 @@ document.addEventListener("click",e=>{
   const bl=e.target.closest("[data-rl]"); if(bl){ const [k,i,v]=bl.dataset.rl.split("|"); const st=reviewState().find(x=>x.k===k); if(!st) return;
     const t=todayIso(), last=st.hist[st.hist.length-1], prev=last&&last.src==="rev"&&last.date===t?last:null;
     const targets=(st.m&&st.m.c?st.m.c:"").split("").map((x,j)=>x!=="o"?j:-1).filter(j=>j>=0);
+    if(prev&&prev.lim&&prev.lim[i]===v){ const keep={...prev.lim}; delete keep[i]; unRev(prev,k,keep); return; }   // 記録済みの印をもう一度押したら取り消し
+    if(!prev&&RSEL[k]&&RSEL[k][i]===v){ delete RSEL[k][i]; renderAll(); return; }                                  // 入力途中の印を外す
     const cur={...(prev&&prev.lim?prev.lim:(RSEL[k]||{}))}; cur[i]=v;
     if(targets.every(j=>cur[j])){ delete RSEL[k]; const vals=targets.map(j=>cur[j]); const res=vals.includes("x")?"x":vals.includes("t")?"t":"o"; addRev(k,res,cur); }
     else { RSEL[k]=cur; renderAll(); }
@@ -664,8 +695,7 @@ async function flushPend(){
 }
 function updAuto(){ const el=$("#dirty"); if(!el) return;
   el.textContent = (!pendEmpty(PEND)||qGet().length)? "保存待ち…（数秒で自動保存）" : (LAST_AUTO? "自動保存済み "+pad(LAST_AUTO.getHours())+":"+pad(LAST_AUTO.getMinutes()) : "変更は自動で保存されます"); }
-function refreshRecList(){ const f=document.activeElement, n=f&&f.closest&&f.closest(".prow")?f.closest(".prow").dataset.n:null, inMemo=f&&f.id==="rMemo";
-  if(inMemo){ updAuto(); return; } renderRec(); if(n) focusRow(n); }
+function refreshRecList(){ REC_PARTIAL=true; try{ renderRec(); } finally{ REC_PARTIAL=false; } }
 function saveMemo(){ const el=$("#rMemo"); if(!el||!REC.draft) return; const v=el.value.trim(); if(!v) return;
   const P=pendGet(); P.memo=(P.memo?P.memo+"／":"")+v; REC.form.memo=""; el.value=""; pendStore(); flushPend(); }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"){ if(VIEW==="rec") saveMemo(); if(!pendEmpty(PEND)) flushPend(); } });
@@ -973,7 +1003,8 @@ tmInit();
 document.addEventListener("click",e=>{
   const go=e.target.closest("[data-go]"); if(go){ REC.sec=+go.dataset.go; REC.draft=null; if(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<todayIso()) REC.form.date=TODAY_VIEW; show("rec"); return; }
   const nb=e.target.closest("#nav button"); if(nb){ if(nb.dataset.v==="today") TODAY_VIEW=null; show(nb.dataset.v); return; }
-  const li=e.target.closest(".lim[data-i]"); if(li){ cycleLim(+li.dataset.n,+li.dataset.i); renderRec(); focusRow(li.dataset.n); return; }
+  const lb=e.target.closest(".lb[data-i]"); if(lb){ setLim(+lb.dataset.n,+lb.dataset.i,lb.dataset.v); renderRec(); focusRow(lb.dataset.n); return; }
+  const ao=e.target.closest("[data-allo]"); if(ao){ setAllO(+ao.dataset.allo); renderRec(); focusRow(ao.dataset.allo); return; }
   const si=e.target.closest("[data-simple]"); if(si){ cycleSimple(+si.dataset.simple); renderRec(); focusRow(si.dataset.simple); return; }
   const vd=e.target.closest("[data-void]"); if(vd){ voidEv(vd.dataset.void); return; }
   const at=e.target.closest("[data-addtime]"); if(at){ addTime(at.dataset.addtime,at.dataset.date); return; }
