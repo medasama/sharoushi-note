@@ -572,10 +572,10 @@ async function addTime(pre,date){
   try{ await store.add(ev); EVENTS.push(ev); derive(); toast("学習時間を追加しました（"+fmtMin(minutes)+"）"); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
 }
 /* ===== 復習リスト =====
-   ×か△を付けた問題を、7日後→（○なら）21日後に出す。21日後も○なら卒業。途中で×か△なら7日後からやり直し。
+   ×か△を付けた問題を、翌日→（○なら）7日後→21日後に出す。3回続けて○なら卒業。途中で×か△なら翌日からやり直し。
    解き直すのは×と△の肢だけ。1日の上限は10問（超えた分は古い順に翌日以降へ）。
    記録画面での判定（同じ日に何度か直したら最後のもの）と、復習での判定（rev）を時系列で見る。 */
-const REV_INT=[7,21], REV_CAP=10;
+const REV_INT=[1,7,21], REV_CAP=10;
 const addDays=(d,n)=>{ const x=parse(d); x.setDate(x.getDate()+n); return iso(x); };
 function reviewState(){
   const voided=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), tl={};
@@ -620,7 +620,7 @@ function reviewCard(t){
   else h+=`<p class="muted">今日解き直す問題はありません。</p>`;
   const wk={}; for(const r of soon){ wk[r.due]=(wk[r.due]||0)+1; }
   const next=Object.entries(wk).sort().slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
-  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になって今日の一覧の下に残ります（明日は出ません）。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT[1]}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。</p>
+  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になって今日の一覧の下に残り、次の予定日まで出ません。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT.slice(1).join("日後→")}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。</p>
     <p class="muted">これからの復習：${next||"なし"}${grad?`　／卒業 ${grad}問`:""}</p>`;
   if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="muted">次回 ${md(r.due)}</span></div>`).join("")}</div></details>`;
   return h+`</div>`;
@@ -926,16 +926,16 @@ async function initFs(){ if(!FS_OK){ updFs(); return; } DIR=await kvGet("dir"); 
 const TM_KEY="sst_timer", TM_GAP=150000, TM_AWAY_MIN=60000;
 let TM=null, TM_END=null, WAKE=null;
 const hm=ts=>{const d=new Date(ts);return pad(d.getHours())+":"+pad(d.getMinutes());};
-function tmLoad(){ try{ TM=JSON.parse(ls.get(TM_KEY)||"null"); }catch(e){ TM=null; } if(!TM) TM={state:null,lec:false,pending:0}; }
+function tmLoad(){ try{ TM=JSON.parse(ls.get(TM_KEY)||"null"); }catch(e){ TM=null; } if(!TM) TM={state:null,lec:true,pending:0}; }
 function tmSave(){ ls.set(TM_KEY,JSON.stringify(TM)); }
 function tmElapsed(now=Date.now()){ if(!TM.state) return 0; return TM.acc+(TM.state==="run"? Math.max(0,now-TM.seg):0); }
 const hms=ms=>{ const s=Math.floor(ms/1000); return Math.floor(s/3600)+":"+pad(Math.floor(s/60)%60)+":"+pad(s%60); };
 function tmAway(ms){ if(ms>=TM_AWAY_MIN) TM.pending=(TM.pending||0)+ms; }
-function tmStart(){ const now=Date.now(); TM={state:"run",lec:false,pending:0,start:now,date:todayIso(),acc:0,seg:now,last:now,auto:false}; TM_END=null; tmSave(); wakeOn(); tmRender(); }
+function tmStart(){ const now=Date.now(); TM={state:"run",lec:TM.lec!==false,pending:0,start:now,date:todayIso(),acc:0,seg:now,last:now,auto:false}; TM_END=null; tmSave(); wakeOn(); tmRender(); }
 function tmPause(auto){ if(TM.state!=="run") return; const now=Date.now(); TM.acc+=Math.max(0,now-TM.seg); TM.state="pause"; TM.auto=!!auto; TM.awayFrom=now; tmSave(); if(!auto) wakeOff(); tmRender(); }
 function tmResume(){ if(TM.state!=="pause") return; const now=Date.now(); if(TM.auto) tmAway(now-TM.awayFrom); TM.state="run"; TM.auto=false; TM.seg=now; TM.last=now; tmSave(); wakeOn(); tmRender(); }
 function tmFinish(){ if(!TM.state) return; if(TM.state==="run") tmPause(false); TM_END={min:Math.round(tmElapsed()/60000),date:TM.date,from:hm(TM.start),to:hm(Date.now())}; wakeOff(); tmRender(); }
-function tmReset(){ TM={state:null,lec:false,pending:0}; TM_END=null; tmSave(); wakeOff(); tmRender(); }
+function tmReset(){ TM={state:null,lec:TM.lec!==false,pending:0}; TM_END=null; tmSave(); wakeOff(); tmRender(); }
 async function tmSaveEnd(){
   const el=$("#tmMin"), minutes=Math.max(0,parseInt((el&&el.value)||"0",10)||0), date=($("#tmDate")&&$("#tmDate").value)||TM_END.date;
   if(!minutes){ if(confirm("0分です。記録せずにタイマーを終わりますか？")) tmReset(); return; }
@@ -952,7 +952,7 @@ function tmTick(){
   const t=$("#tmTime"); if(t) t.textContent=hms(tmElapsed(now));
   const hc=$("#tmChip"); if(hc) hc.textContent=tmChipText();
 }
-function tmChipText(){ if(!TM||!TM.state) return ""; return (TM.state==="run"?"● 計測中 ":"一時停止 ")+hms(tmElapsed()).slice(0,-3)+(TM.lec&&TM.state==="run"?"（講義モード）":""); }
+function tmChipText(){ if(!TM||!TM.state) return ""; return (TM.state==="run"?"● 計測中 ":"一時停止 ")+hms(tmElapsed()).slice(0,-3)+(!TM.lec&&TM.state==="run"?"（離れたら止める）":""); }
 document.addEventListener("visibilitychange",()=>{
   if(!TM) return;
   if(document.visibilityState==="hidden"){ if(TM.state==="run" && !TM.lec) tmPause(true); else { TM.last=Date.now(); tmSave(); } }
@@ -969,7 +969,7 @@ function tmInit(){
 }
 function timerHtml(){
   if(!TM) tmLoad();
-  const st=TM.state, lecBtn=`<label class="check" title="講義を別のタブで見るときにオン。オンの間は画面を離れても止まりません。タイマーを終了するとオフに戻ります"><input type="checkbox" id="tmLec" ${TM.lec?"checked":""}> 講義モード（離れても止めない）</label>`;
+  const st=TM.state, lecBtn=`<label class="check" title="オンにすると、別のタブ・最小化・画面ロック・スリープのときに自動で止まります（PCでネットを見るなど脱線を除きたいとき）"><input type="checkbox" id="tmLec" ${TM.lec?"":"checked"}> 離れたら自動で止める</label>`;
   let h=`<div class="card" id="tmCard"><h2>タイマー ${st==="run"?`<span class="chip ok">計測中</span>`:st==="pause"?`<span class="chip mid">${TM.auto?"離れたので一時停止":"一時停止中"}</span>`:""}</h2>`;
   if(TM_END){
     h+=`<div class="row"><span>計測：<b>${fmtMin(TM_END.min)}</b>（${TM_END.from}〜${TM_END.to}）</span>
@@ -981,7 +981,7 @@ function timerHtml(){
       ${!st?`<button class="btn" id="tmStart">開始</button>`:st==="run"?`<button class="btn ghost" id="tmPause">一時停止</button><button class="btn" id="tmFinish">終了</button>`:`<button class="btn" id="tmResume">再開</button><button class="btn ghost" id="tmFinish">終了</button>`}
       ${lecBtn}</div>`;
     if(TM.pending>=TM_AWAY_MIN && st) h+=`<div class="tmaway">止まっていた時間 ${fmtMin(Math.round(TM.pending/60000))} <button class="btn small" id="tmAddAway">足す</button><button class="btn ghost small" id="tmDropAway">足さない</button><span class="muted">講義など勉強していたなら「足す」</span></div>`;
-    h+=`<p class="muted">別のタブ・最小化・画面ロック・スリープのときは自動で止まり、戻ると再開します。1分以上止まっていたときは「足す」で戻せます。計測中はPCの画面が消えないようにします。</p>`;
+    h+=`<p class="muted">${TM.lec?"紙の教材で勉強している間も止まりません。終わったら「終了」を押してください（止め忘れても、保存前に分数を直せます）。":"別のタブ・最小化・画面ロック・スリープのときは自動で止まり、戻ると再開します。1分以上止まっていたときは「足す」で戻せます。"}計測中はPCの画面が消えないようにします。</p>`;
   }
   return h+`</div>`;
 }
@@ -996,7 +996,7 @@ document.addEventListener("click",e=>{
   else if(id==="tmDropAway"){ TM.pending=0; tmSave(); tmRender(); }
   else if(id==="tmChip"){ show("today"); }
 });
-document.addEventListener("change",e=>{ if(e.target.id==="tmLec"){ TM.lec=e.target.checked; tmSave(); tmRender(); } });
+document.addEventListener("change",e=>{ if(e.target.id==="tmLec"){ TM.lec=!e.target.checked; tmSave(); tmRender(); } });
 tmInit();
 
 /* ===== イベント ===== */
