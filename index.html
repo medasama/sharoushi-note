@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社労士 進捗帳</title>
-<meta name="theme-color" content="#1f4e5f">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
+<title>社労士 進捗帳</title>
+<meta name="theme-color" content="#1f4e5f">
 <style>
 :root{
   --bg:#f5f3ee;--panel:#ffffff;--ink:#22262a;--sub:#6b7176;--line:#e2ded5;
@@ -439,15 +439,14 @@ function secLine(p,withBtn=true){
     <div class="steps">${step(!!st.read,false,"教科書",st.read?"読んだ "+md(st.read):"まだ（押すと済）","read")}${step(lecOk,false,"講義",lecOk?"見た "+md(st.lecture):(lecRel?"配信済み・まだ":esc(lecLabel(p))+"配信")+"（押すと済）","lecture")}${step(done>=qn(p),done>0,"問題",done+" / "+qn(p)+"問"+(done&&done<qn(p)?"（あと"+(qn(p)-done)+"問）":""))}</div>
   </div>${withBtn?`<button class="btn small" data-go="${p.id}">記録する</button>`:""}</div>`;
 }
-async function toggleStep(sec,kind,on){
+function toggleStep(sec,kind,on){
   const real=todayIso(), d=(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<real)?TODAY_VIEW:real;
   if(on && !confirm((kind==="read"?"教科書":"講義")+"の「済」を取り消しますか？")) return;
   const it={sec:+sec,round:1,probs:{}}; it[kind]=!on;
-  const ev={t:"day",id:uid(),ts:Date.now(),date:d,minutes:0,memo:"",items:[it]};
-  try{ await store.add(ev); EVENTS.push(ev); derive(); REC.draft=null; toast((kind==="read"?"教科書":"講義")+(on?"を取り消しました":"を済にしました（"+(+d.slice(5,7))+"/"+(+d.slice(8))+"）")); renderAll(); writeFiles(false); }
-  catch(e){ toast("保存に失敗しました"); }
+  REC.draft=null;
+  saveOptimistic([{t:"day",id:uid(),ts:Date.now(),date:d,minutes:0,memo:"",items:[it]}],(kind==="read"?"教科書":"講義")+(on?"を取り消しました":"を済にしました（"+(+d.slice(5,7))+"/"+(+d.slice(8))+"）"));
 }
-document.addEventListener("click",e=>{ const b=e.target.closest("[data-tg]"); if(b){ b.disabled=true; toggleStep(b.dataset.sec,b.dataset.tg,b.dataset.on==="1"); } });
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-tg]"); if(b){ toggleStep(b.dataset.sec,b.dataset.tg,b.dataset.on==="1"); } });
 let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
 function renderToday(){
   const real=todayIso(), t=TODAY_VIEW||real, isToday=t===real, d=parse(t), el=$("#v-today");
@@ -618,36 +617,47 @@ function reviewCard(t){
   const cap=Math.max(0,REV_CAP+RS.extra-done.length), show=due.slice(0,cap), rest=due.length-show.length;
   const total=show.length+done.length;
   let h=`<div class="card" id="revCard"><h2>今日の復習 ${total?`<span class="chip ${show.length?"mid":"ok"}">${done.length} / ${total}問 済</span>`:`<span class="chip ok">なし</span>`}</h2>`;
-  if(total){ h+=show.map(row).join("")+done.map(row).join("");
+  if(total){ h+=[...show,...done].sort((x,y)=>x.sec-y.sec||x.n-y.n).map(row).join("");
     if(!show.length) h+=`<p style="margin-top:8px;color:var(--ok);font-weight:700">今日の分は終わりました。</p>`;
     if(rest>0) h+=`<p class="muted" style="margin-top:8px">上限（1日${REV_CAP}問）を超えた${rest}問は、明日以降に回ります（古い順）。<button class="btn ghost small" data-revfull="1">余裕があるので、あと${Math.min(REV_CAP,rest)}問解く</button></p>`; }
   else h+=`<p class="muted">今日解き直す問題はありません。</p>`;
   const wk={}; for(const r of soon){ wk[r.due]=(wk[r.due]||0)+1; }
   const next=Object.entries(wk).sort().slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
-  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になって今日の一覧の下に残り、次の予定日まで出ません。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT.slice(1).join("日後→")}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。</p>
+  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になってその場に残り、次の予定日まで出ません。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT.slice(1).join("日後→")}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。</p>
     <p class="muted">これからの復習：${next||"なし"}${grad?`　／卒業 ${grad}問`:""}</p>`;
   if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="muted">次回 ${md(r.due)}</span></div>`).join("")}</div></details>`;
   return h+`</div>`;
 }
 const RSEL={}; // 肢ごとの入力途中（全部の肢がそろったら記録）
-async function unRev(prev,k,keep){
-  const v={t:"void",id:uid(),ts:Date.now(),target:prev.id};
-  try{ await store.add(v); EVENTS.push(v); derive(); if(keep) RSEL[k]=keep; toast("取り消しました（今日の復習に戻しました）"); renderAll(); writeFiles(false); }
-  catch(e){ toast("取消に失敗しました"); renderAll(); }
+/* 画面には先に反映し、保存は後ろで行う（押した直後に画面が描き直されて、次のクリックが空振りするのを防ぐ） */
+let SAVE_CHAIN=Promise.resolve();
+function saveOptimistic(list,msg){
+  for(const ev of list) EVENTS.push(ev);
+  derive(); renderAll(); if(msg) toast(msg);
+  SAVE_CHAIN=SAVE_CHAIN.then(async()=>{
+    for(let i=0;i<list.length;i++){
+      try{ await store.add(list[i]); }
+      catch(e){ console.error(e); const bad=new Set(list.slice(i).map(x=>x.id)); EVENTS=EVENTS.filter(x=>!bad.has(x.id)); derive(); renderAll(); toast("保存に失敗しました。もう一度押してください"); return; }
+    }
+    writeFiles(false);
+  });
 }
-async function addRev(k,r,lim){
+function unRev(prev,k,keep){
+  if(keep) RSEL[k]=keep;
+  saveOptimistic([{t:"void",id:uid(),ts:Date.now(),target:prev.id}],"取り消しました（今日の復習に戻しました）");
+}
+function addRev(k,r,lim){
   const t=todayIso(), st=reviewState().find(x=>x.k===k), last=st&&st.hist[st.hist.length-1];
   const prev=last&&last.src==="rev"&&last.date===t?last:null;
-  if(prev&&prev.r===r&&!lim&&!prev.lim){ await unRev(prev,k); return; } // 同じ印をもう一度押したら取り消し
-  const [sec,n]=k.split(":").map(Number), ev={t:"rev",id:uid(),ts:Date.now(),date:t,sec,n,r}; if(lim) ev.lim=lim;
-  try{
-    if(prev){ const v={t:"void",id:uid(),ts:Date.now(),target:prev.id}; await store.add(v); EVENTS.push(v); }
-    ev.ts=Date.now(); await store.add(ev); EVENTS.push(ev); derive(); toast(`問${n}：${sym(r)}を${prev?"付け直しました":"記録しました"}`); renderAll(); writeFiles(false);
-  }catch(e){ toast("保存に失敗しました"); renderAll(); }
+  if(prev&&prev.r===r&&!lim&&!prev.lim){ unRev(prev,k); return; } // 同じ印をもう一度押したら取り消し
+  const [sec,n]=k.split(":").map(Number), list=[];
+  if(prev) list.push({t:"void",id:uid(),ts:Date.now(),target:prev.id});
+  const ev={t:"rev",id:uid(),ts:Date.now()+1,date:t,sec,n,r}; if(lim) ev.lim=lim; list.push(ev);
+  saveOptimistic(list,`問${n}：${sym(r)}を${prev?"付け直しました":"記録しました"}`);
 }
 function revRows(){ const md=d=>d?d:""; return [["科目","Section","問題番号","状態","次回","履歴"],...reviewState().map(r=>[r.p.s,r.p.k,r.n,r.act?"復習中（"+(r.stage+1)+"回目）":"卒業",r.act?r.due:"",r.hist.map(x=>x.date+(x.src==="rev"?"復習":"")+sym(x.r)).join(" → ")])]; }
 document.addEventListener("click",e=>{
-  const b=e.target.closest("[data-rev]"); if(b){ b.disabled=true; addRev(b.dataset.rev,b.dataset.r); return; }
+  const b=e.target.closest("[data-rev]"); if(b){ addRev(b.dataset.rev,b.dataset.r); return; }
   const bl=e.target.closest("[data-rl]"); if(bl){ const [k,i,v]=bl.dataset.rl.split("|"); const st=reviewState().find(x=>x.k===k); if(!st) return;
     const t=todayIso(), last=st.hist[st.hist.length-1], prev=last&&last.src==="rev"&&last.date===t?last:null;
     const targets=(st.m&&st.m.c?st.m.c:"").split("").map((x,j)=>x!=="o"?j:-1).filter(j=>j>=0);
@@ -1030,7 +1040,7 @@ document.addEventListener("change",e=>{
 document.addEventListener("input",e=>{
   if(e.target.id==="rMemo") REC.form.memo=e.target.value;
 });
-function focusRow(n){ const r=document.querySelector(`.prow[data-n="${n}"]`); if(r) r.focus(); }
+function focusRow(n){ const r=document.querySelector(`.prow[data-n="${n}"]`); if(r) r.focus({preventScroll:true}); }
 document.addEventListener("keydown",e=>{
   const row=e.target.closest&&e.target.closest(".prow"); if(!row||VIEW!=="rec") return;
   const n=+row.dataset.n;
