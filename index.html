@@ -182,6 +182,11 @@ button.stp{font:inherit;text-align:left;cursor:pointer}button.stp:hover{border-c
 .lb:hover{background:var(--bg)}
 .lb.on.o{background:var(--ok);color:#fff}.lb.on.t{background:var(--mid);color:#fff}.lb.on.x{background:var(--ng);color:#fff}
 .lb.o:not(.on){color:color-mix(in srgb,var(--ok) 45%,transparent)}.lb.t:not(.on){color:color-mix(in srgb,var(--mid) 45%,transparent)}.lb.x:not(.on){color:color-mix(in srgb,var(--ng) 45%,transparent)}
+.lt-row{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:9px 0}
+.lt-row:first-of-type{border-top:0}
+.lt-d{width:112px;flex-shrink:0;white-space:nowrap}.lt-d b{display:block;font-size:14px}.lt-d small{color:var(--ng);font-weight:700;font-size:12px}
+.lt-m{flex:1;min-width:0;font-size:14px}.lt-p{font-size:13px;margin-top:2px}
+.lt-x{color:var(--ng);font-weight:700}
 .ms-row{display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
 .ms-row:first-child{border-top:0}
 .ms-row .left{width:74px;flex-shrink:0;font-weight:700;color:var(--accent)}
@@ -447,6 +452,22 @@ function toggleStep(sec,kind,on){
   saveOptimistic([{t:"day",id:uid(),ts:Date.now(),date:d,minutes:0,memo:"",items:[it]}],(kind==="read"?"教科書":"講義")+(on?"を取り消しました":"を済にしました（"+(+d.slice(5,7))+"/"+(+d.slice(8))+"）"));
 }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-tg]"); if(b){ toggleStep(b.dataset.sec,b.dataset.tg,b.dataset.on==="1"); } });
+function lateCard(real){
+  const late=PLAN.filter(p=>p.d1<real && status(p)!=="done").sort((a,b)=>a.d1.localeCompare(b.d1)||a.id-b.id);
+  if(!late.length) return `<div class="card"><h2>遅れている分 <span class="chip ok">なし</span></h2><p class="muted">予定日を過ぎて終わっていないSectionはありません。</p></div>`;
+  const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
+  const rng=a=>{ const out=[]; let s=null,pv=null; for(const n of a){ if(s===null){s=pv=n;} else if(n===pv+1){pv=n;} else {out.push(s===pv?"問"+s:"問"+s+"〜"+pv); s=pv=n;} } if(s!==null) out.push(s===pv?"問"+s:"問"+s+"〜"+pv); return out.join("・"); };
+  let pg=0, qs=0;
+  const rows=late.map(p=>{ const st=secState(p.id), miss=[]; for(let n=p.q0;n<=p.q1;n++) if(!st.marks[n]) miss.push(n);
+    const days=Math.round((parse(real)-parse(p.d1))/864e5); if(!st.read) pg+=p.pg; qs+=miss.length;
+    const parts=[]; if(!st.read) parts.push(`<span class="lt-x">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）</span>`); if(miss.length) parts.push(`<span class="lt-x">問題 ${rng(miss)}（${miss.length}問）</span>`);
+    const ld=lecDate(p); const lec=!st.lecture&&ld&&ld<=real?`<span class="muted">講義もまだ</span>`:"";
+    return `<div class="lt-row"><div class="lt-d"><b>${md(p.d0)}${p.d1!==p.d0?"〜"+md(p.d1):""}</b><small>${days}日遅れ</small></div>
+      <div class="lt-m"><div><b>${esc(p.s)} Sec${p.k}</b> <span class="muted">${esc(p.t)}</span></div><div class="lt-p">残り：${parts.join("　")} ${lec}</div></div>
+      <button class="btn small" data-go="${p.id}">記録する</button></div>`; }).join("");
+  return `<div class="card" id="lateCard"><h2>遅れている分 <span class="chip ng">${late.length} Section</span></h2>
+    <p class="muted" style="margin-top:0">合計：${pg?"教科書 "+pg+"ページ・":""}問題 ${qs}問。予定日の古い順です（講義は後でまとめて見る前提なので、遅れには数えていません）。</p>${rows}</div>`;
+}
 let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
 function renderToday(){
   const real=todayIso(), t=TODAY_VIEW||real, isToday=t===real, d=parse(t), el=$("#v-today");
@@ -471,13 +492,13 @@ function renderToday(){
   else{ const o=todays.find(p=>p.d0===t && p.k===1 && PLAN.find(q=>q.s===p.s).id===p.id); if(o) h+=`<p class="muted">${esc(o.s)}の初日です。オリエンテーションも読んでください。</p>`;
     h+=todays.map(p=>secLine(p)).join(""); }
   h+=`</div>`;
+  if(isToday) h+=lateCard(real);
   if(t<=real){ const dl=S.logs.filter(e=>e.date===t), dt=S.times.filter(e=>e.date===t);
     const items=dl.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);const n=Object.keys(it.probs||{}).length;return esc(q.s+" Sec"+q.k)+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(n?" 問題"+n+"問":"");}));
     h+=`<div class="card"><h2>${isToday?"今日":"この日"}の記録</h2>${items.length||dt.length?`<p>${items.join("、")||"（Sectionの記録なし）"}</p>${dt.length?`<p class="muted">学習時間：${dt.map(e=>fmtMin(e.minutes)+(e.from?"（"+e.from+"〜"+e.to+"）":"")).join("、")}</p>`:""}`:`<p class="muted">記録はありません。</p>`}
       <button class="btn ghost small" data-recday="${t}">この日の記録を入れる・直す</button></div>`; }
   if(isToday){
     const ls_=lecSummary(); if(ls_.backlog.length) h+=`<div class="card"><h2>配信済みで未視聴の講義 <span class="chip mid">${ls_.backlog.length}本</span></h2><p class="muted">教科書を先に読んだSectionの講義は、配信されたら復習として見ます。</p><button class="btn ghost small" data-golec="1">講義の一覧を見る</button></div>`;
-    if(late.length) h+=`<div class="card"><h2>予定日を過ぎて未完了 <span class="chip ng">${late.length}</span></h2>${late.slice(0,6).map(p=>secLine(p)).join("")}${late.length>6?`<p class="muted">ほか${late.length-6}件は「進み具合」で確認できます。</p>`:""}</div>`;
   }
   el.innerHTML=h;
 }
