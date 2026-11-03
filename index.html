@@ -182,6 +182,9 @@ button.stp{font:inherit;text-align:left;cursor:pointer}button.stp:hover{border-c
 .lb:hover{background:var(--bg)}
 .lb.on.o{background:var(--ok);color:#fff}.lb.on.t{background:var(--mid);color:#fff}.lb.on.x{background:var(--ng);color:#fff}
 .lb.o:not(.on){color:color-mix(in srgb,var(--ok) 45%,transparent)}.lb.t:not(.on){color:color-mix(in srgb,var(--mid) 45%,transparent)}.lb.x:not(.on){color:color-mix(in srgb,var(--ng) 45%,transparent)}
+.lt-box{background:var(--ng-soft);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.lt-box h3,.lt-today{font-size:14px;margin:0 0 6px}
+.lt-box .lt-row{border-top-color:color-mix(in srgb,var(--ng) 20%,transparent)}
 .lt-row{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:9px 0}
 .lt-row:first-of-type{border-top:0}
 .lt-d{width:112px;flex-shrink:0;white-space:nowrap}.lt-d b{display:block;font-size:14px}.lt-d small{color:var(--ng);font-weight:700;font-size:12px}
@@ -454,7 +457,7 @@ function toggleStep(sec,kind,on){
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-tg]"); if(b){ toggleStep(b.dataset.sec,b.dataset.tg,b.dataset.on==="1"); } });
 function lateCard(real){
   const late=PLAN.filter(p=>p.d1<real && status(p)!=="done").sort((a,b)=>a.d1.localeCompare(b.d1)||a.id-b.id);
-  if(!late.length) return `<div class="card"><h2>遅れている分 <span class="chip ok">なし</span></h2><p class="muted">予定日を過ぎて終わっていないSectionはありません。</p></div>`;
+  if(!late.length) return "";
   const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
   const rng=a=>{ const out=[]; let s=null,pv=null; for(const n of a){ if(s===null){s=pv=n;} else if(n===pv+1){pv=n;} else {out.push(s===pv?"問"+s:"問"+s+"〜"+pv); s=pv=n;} } if(s!==null) out.push(s===pv?"問"+s:"問"+s+"〜"+pv); return out.join("・"); };
   let pg=0, qs=0;
@@ -465,8 +468,8 @@ function lateCard(real){
     return `<div class="lt-row"><div class="lt-d"><b>${md(p.d0)}${p.d1!==p.d0?"〜"+md(p.d1):""}</b><small>${days}日遅れ</small></div>
       <div class="lt-m"><div><b>${esc(p.s)} Sec${p.k}</b> <span class="muted">${esc(p.t)}</span></div><div class="lt-p">残り：${parts.join("　")} ${lec}</div></div>
       <button class="btn small" data-go="${p.id}">記録する</button></div>`; }).join("");
-  return `<div class="card" id="lateCard"><h2>遅れている分 <span class="chip ng">${late.length} Section</span></h2>
-    <p class="muted" style="margin-top:0">合計：${pg?"教科書 "+pg+"ページ・":""}問題 ${qs}問。予定日の古い順です（講義は後でまとめて見る前提なので、遅れには数えていません）。</p>${rows}</div>`;
+  return `<div id="lateCard" class="lt-box"><h3>遅れている分 <span class="chip ng">${late.length} Section</span></h3>
+    <p class="muted" style="margin:0 0 4px">合計：${pg?"教科書 "+pg+"ページ・":""}問題 ${qs}問。予定日の古い順（講義は遅れに数えていません）。</p>${rows}</div>`;
 }
 let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
 function renderToday(){
@@ -487,12 +490,12 @@ function renderToday(){
     ${isToday?`<div class="stat"><div class="lbl">予定との差（昨日までの予定比）</div><div class="val" style="color:${a.days<0?"var(--ng)":"var(--ok)"}">${a.days>0?"+":""}${a.days}日</div></div>`:""}</div></div></div>`;
   if(isToday) h+=timerHtml()+reviewCard(t);
   h+=`<div class="card"><h2>${isToday?"今日":"この日"}の範囲</h2>`;
+  const lt=isToday?lateCard(real):""; if(lt) h+=lt+`<h3 class="lt-today">今日の予定</h3>`;
   if(d.getDay()===0 && !todays.length) h+=`<p>${isToday?"今日":"この日"}は予備日です。遅れている範囲や復習に使ってください。</p>`;
   else if(!todays.length) h+=`<p class="muted">この日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
   else{ const o=todays.find(p=>p.d0===t && p.k===1 && PLAN.find(q=>q.s===p.s).id===p.id); if(o) h+=`<p class="muted">${esc(o.s)}の初日です。オリエンテーションも読んでください。</p>`;
     h+=todays.map(p=>secLine(p)).join(""); }
   h+=`</div>`;
-  if(isToday) h+=lateCard(real);
   if(t<=real){ const dl=S.logs.filter(e=>e.date===t), dt=S.times.filter(e=>e.date===t);
     const items=dl.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);const n=Object.keys(it.probs||{}).length;return esc(q.s+" Sec"+q.k)+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(n?" 問題"+n+"問":"");}));
     h+=`<div class="card"><h2>${isToday?"今日":"この日"}の記録</h2>${items.length||dt.length?`<p>${items.join("、")||"（Sectionの記録なし）"}</p>${dt.length?`<p class="muted">学習時間：${dt.map(e=>fmtMin(e.minutes)+(e.from?"（"+e.from+"〜"+e.to+"）":"")).join("、")}</p>`:""}`:`<p class="muted">記録はありません。</p>`}
