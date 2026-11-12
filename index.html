@@ -602,10 +602,11 @@ async function addTime(pre,date){
   try{ await store.add(ev); EVENTS.push(ev); derive(); toast("学習時間を追加しました（"+fmtMin(minutes)+"）"); renderAll(); writeFiles(false); }catch(e){ toast("保存に失敗しました"); }
 }
 /* ===== 復習リスト =====
-   ×か△を付けた問題を、翌日→（○なら）7日後→21日後に出す。3回続けて○なら卒業。途中で×か△なら翌日からやり直し。
-   解き直すのは×と△の肢だけ。1日の上限は10問（超えた分は古い順に翌日以降へ）。
+   ×か△を付けた問題を、7日後→（○なら）21日後に出す。2回続けて○なら卒業。途中で×か△なら7日後からやり直し（2026-11-12変更。旧：翌日→7日後→21日後）。
+   解き直すのは×と△の肢だけ。1日の上限は15問（超えた分は古い順に翌日以降へ）。
+   2026-11-12時点で予定日を過ぎていた分は、11/12から14日間に振り分ける（REV_SPREAD）。
    記録画面での判定（同じ日に何度か直したら最後のもの）と、復習での判定（rev）を時系列で見る。 */
-const REV_INT=[1,7,21], REV_CAP=10;
+const REV_INT=[7,21], REV_CAP=15, REV_SPREAD={date:"2026-11-12",days:14};
 const addDays=(d,n)=>{ const x=parse(d); x.setDate(x.getDate()+n); return iso(x); };
 function reviewState(){
   const voided=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), tl={};
@@ -621,6 +622,10 @@ function reviewState(){
       else if(act){ stage++; if(stage>=REV_INT.length){ act=false; grad=x.date; } else due=addDays(x.date,REV_INT[stage]); } }
     if(!bad) continue; const [sec,n]=k.split(":").map(Number);
     out.push({k,sec,n,p:PLAN.find(q=>q.id===sec),act,stage,due,bad,m,grad,hist:a}); }
+  // 振り分け：振り分け日の時点で予定日を過ぎていて、それ以降まだ解き直していない問題を、14日間に均等に割り当てる
+  const sp=out.filter(r=>r.act && r.due<=REV_SPREAD.date && r.hist[r.hist.length-1].date<REV_SPREAD.date)
+    .sort((x,y)=>x.due.localeCompare(y.due)||x.sec-y.sec||x.n-y.n);
+  sp.forEach((r,i)=>{ r.due=addDays(REV_SPREAD.date,Math.floor(i*REV_SPREAD.days/sp.length)); r.spread=true; });
   return out.sort((x,y)=>(x.due||"").localeCompare(y.due||"")||x.sec-y.sec||x.n-y.n);
 }
 const RS={extra:0};
@@ -650,7 +655,7 @@ function reviewCard(t){
   else h+=`<p class="muted">今日解き直す問題はありません。</p>`;
   const wk={}; for(const r of soon){ wk[r.due]=(wk[r.due]||0)+1; }
   const next=Object.entries(wk).sort().slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
-  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になってその場に残り、次の予定日まで出ません。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT.slice(1).join("日後→")}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。</p>
+  h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は「済」になってその場に残り、次の予定日まで出ません。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT.slice(1).join("日後→")}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。<b>×・△だった肢は、その場で解説と教科書を読んで、次は間違えないようにしてから次の問題へ。</b></p>
     <p class="muted">これからの復習：${next||"なし"}${grad?`　／卒業 ${grad}問`:""}</p>`;
   if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="muted">次回 ${md(r.due)}</span></div>`).join("")}</div></details>`;
   return h+`</div>`;
