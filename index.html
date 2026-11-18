@@ -644,8 +644,11 @@ function reviewCard(t){
     return targets.map(i=>`<div class="rv-l"><span class="ll">${LIM[i]}</span>${["o","t","x"].map(v=>`<button class="lim ${v} ${cur[i]?(cur[i]===v?"sel":"dim"):""}" data-rl="${r.k}|${i}|${v}">${sym(v)}</button>`).join("")}</div>`).join(""); };
   const row=r=>{ const c=r.m&&r.m.c?r.m.c:"", lim=c?c.split("").map(sym).join(""):"", lr=lastRev(r);
     const chk=c?c.split("").map((v,i)=>v!=="o"?LIM[i]+sym(v):"").filter(Boolean).join("・"):"";
-    const info=lr? `<small class="rv-done">今日 <b>${sym(lr.r)}</b>${lr.lim?"（"+Object.entries(lr.lim).map(([i,v])=>LIM[i]+sym(v)).join("・")+"）":""} を記録 → ${r.act?"次は "+md(r.due)+"（"+(r.stage+1)+"回目）":"卒業"}　<span class="muted">別の印で付け直し、同じ印をもう一度押すと取り消し</span></small>`
-      : `<small>前回 <span class="res ${r.bad.r}">${sym(r.bad.r)}</span> ${md(r.bad.date)}${lim?"（肢 "+lim+"）":""}・${r.stage+1}回目の解き直し（全${REV_INT.length}回）${r.pulled?`・<b>先取り</b>（予定 ${md(r.due)}）`:""}・教科書 p.${r.p.p0}〜${r.p.p1}${r.due<t?` ・<span style="color:var(--ng)">予定 ${md(r.due)}</span>`:""}</small>`;
+    const info=lr? `<small class="rv-done">今日 <b>${sym(lr.r)}</b>${lr.lim?"（"+Object.entries(lr.lim).map(([i,v])=>LIM[i]+sym(v)).join("・")+"）":""} を記録 → ${r.act?"次は "+md(r.due)+"（○があと"+(REV_INT.length-r.stage)+"回続けば卒業）":"卒業"}　<span class="muted">別の印で付け直し、同じ印をもう一度押すと取り消し</span></small>`
+      : (()=>{ const nrev=r.hist.filter(x=>x.src==="rev").length, need=REV_INT.length-r.stage, lastR=[...r.hist].reverse().find(x=>x.src==="rev");
+          const path=r.hist.map(x=>`${md(x.date)}<span class="res ${x.r}">${sym(x.r)}</span>`).join(" → ");
+          const prevLim=lastR&&lastR.lim?Object.entries(lastR.lim).map(([i,v])=>LIM[i]+sym(v)).join("・"):"";
+          return `<small>経過：${path}　→ 今回は<b>解き直し${nrev+1}回目</b>（○があと${need}回続けば卒業）${prevLim?`・前回の解き直しでは ${prevLim}`:""}${r.pulled?`・<b>先取り</b>（予定 ${md(r.due)}）`:""}・教科書 p.${r.p.p0}〜${r.p.p1}${r.due<t?` ・<span style="color:var(--ng)">予定 ${md(r.due)}</span>`:""}</small>`; })();
     return `<div class="rv-row ${lr?"done":""}"><div class="rv-main"><b>${lr?"✓ ":""}${esc(r.p.s)} Sec${r.p.k} 問${r.n}</b> <span class="muted">${esc(r.p.t)}</span>
       ${lr?"":chk?`<div class="rv-chk">確認する肢：<b>${chk}</b></div>`:`<div class="rv-chk">問題全体を解き直す（簡易入力の記録）</div>`}
       ${info}</div><div class="rv-btn ${c?"lims":""}">${c?limBtns(r,c.split("").map((v,i)=>v!=="o"?i:-1).filter(i=>i>=0),lr):btns(r,lr&&lr.r)}</div></div>`; };
