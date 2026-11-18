@@ -664,7 +664,8 @@ function reviewCard(t){
   // 追加で解く候補：ノルマを超えて予定日が来ている問題 → 振り分けで先の日に回した問題（どちらも古い順）
   const ahead=act.filter(r=>r.spread && r.due>t && !lastRev(r)).sort((x,y)=>x.due.localeCompare(y.due)||x.sec-y.sec||x.n-y.n);
   const pool=due.filter(r=>!Q.has(r.k)).concat(ahead);
-  const extra=pool.slice(0,Math.max(0,RS.more-doneX)); // 押した分だけ（解いた分は補充しない） extra.forEach(r=>{ if(r.due>t) r.pulled=true; });
+  const extra=pool.slice(0,Math.max(0,RS.more-doneX)); // 押した分だけ（解いた分は補充しない）
+  extra.forEach(r=>{ if(r.due>t) r.pulled=true; });
   const pending=qPending.concat(extra), left=pool.length-extra.length;
   const moreBtn=left>0?`<button class="btn small" data-revmore="1">あと${Math.min(5,left)}問解く</button> <span class="muted">（追加で解ける問題 残り${left}問）</span>`:"";
   let h=`<div class="card" id="revCard"><h2>今日の復習 ${qn?(achieved?`<span class="chip ok">ノルマ達成 ${doneQ}/${qn}</span>`:`<span class="chip mid">ノルマ ${doneQ}/${qn}問</span>`):`<span class="chip ok">ノルマなし</span>`}${doneX?` <span class="chip ok">追加 +${doneX}問</span>`:""}</h2>`;
