@@ -164,6 +164,7 @@ ul.todo li{margin:2px 0}
 .rv-goal{background:var(--ok-soft);color:var(--ok);font-weight:700;border-radius:10px;padding:10px 12px;margin:4px 0 10px}
 .rv-h{font-size:14px;margin:6px 0 2px}.rv-more{margin:10px 0;padding:8px 10px;border-radius:8px;background:var(--bg)}
 .rv-donelist{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}.rv-donelist summary{cursor:pointer;font-weight:700;font-size:14px}
+.rv-due{color:var(--ng);font-weight:700}.rv-later{color:var(--sub)}
 .rv-btn{display:flex;gap:6px}.rv-btn .lim{width:44px}
 .sec.s-done{background:var(--ok-soft);border-radius:10px;padding:10px;border-top-color:transparent}
 .sbadge{flex:0 0 56px;height:56px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--none);color:var(--sub);border:2px dashed var(--line)}
@@ -607,10 +608,10 @@ async function addTime(pre,date){
 }
 /* ===== 復習リスト =====
    ×か△を付けた問題を、7日後→（○なら）21日後に出す。2回続けて○なら卒業。途中で×か△なら7日後からやり直し（2026-11-12変更。旧：翌日→7日後→21日後）。
-   解き直すのは×と△の肢だけ。1日の上限は15問（超えた分は古い順に翌日以降へ）。
+   解き直すのは×と△の肢だけ。1日の上限はなし（2026-11-18変更）。予定日が来ている問題は全部その日の分で、古い順に出す。
    2026-11-12時点で予定日を過ぎていた分は、11/12から14日間に振り分ける（REV_SPREAD）。
    記録画面での判定（同じ日に何度か直したら最後のもの）と、復習での判定（rev）を時系列で見る。 */
-const REV_INT=[7,21], REV_CAP=15, REV_SPREAD={date:"2026-11-12",days:14};
+const REV_INT=[7,21], REV_SPREAD={date:"2026-11-12",days:14};
 const addDays=(d,n)=>{ const x=parse(d); x.setDate(x.getDate()+n); return iso(x); };
 function reviewState(cut){
   const voided=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), tl={};
@@ -656,29 +657,30 @@ function reviewCard(t){
     return `<div class="rv-row ${lr?"done":""}"><div class="rv-main"><b>${lr?"✓ ":""}${esc(r.p.s)} Sec${r.p.k} 問${r.n}</b> <span class="muted">${esc(r.p.t)}</span>
       ${lr?"":chk?`<div class="rv-chk">確認する肢：<b>${chk}</b></div>`:`<div class="rv-chk">問題全体を解き直す（簡易入力の記録）</div>`}
       ${info}</div><div class="rv-btn ${c?"lims":""}">${c?limBtns(r,c.split("").map((v,i)=>v!=="o"?i:-1).filter(i=>i>=0),lr):btns(r,lr&&lr.r)}</div></div>`; };
-  // 今日のノルマ：今日より前の記録で見て、今日までに予定日が来ていた問題の古い順15問（解いても数が動かないように固定）
-  const before=reviewState(t), Q=new Set(before.filter(r=>r.act && r.due<=t).slice(0,REV_CAP).map(r=>r.k));
+  // 今日の分：今日より前の記録で見て、今日までに予定日が来ていた問題すべて（上限なし。解いても数が動かないように固定）
+  const before=reviewState(t), dueB=before.filter(r=>r.act && r.due<=t), Q=new Set(dueB.map(r=>r.k)), overN=dueB.filter(r=>r.due<t).length;
   const qn=Q.size, doneQ=done.filter(r=>Q.has(r.k)).length, doneX=done.length-doneQ, achieved=qn>0&&doneQ>=qn;
   if(RS.more<doneX) RS.more=doneX; // 前の画面で追加した分は数に含める
   const qPending=due.filter(r=>Q.has(r.k));
-  // 追加で解く候補：ノルマを超えて予定日が来ている問題 → 振り分けで先の日に回した問題（どちらも古い順）
+  // 追加で解く候補：振り分けで先の日に回した問題（もともと予定日を過ぎていた分。古い順）
   const ahead=act.filter(r=>r.spread && r.due>t && !lastRev(r)).sort((x,y)=>x.due.localeCompare(y.due)||x.sec-y.sec||x.n-y.n);
   const pool=due.filter(r=>!Q.has(r.k)).concat(ahead);
   const extra=pool.slice(0,Math.max(0,RS.more-doneX)); // 押した分だけ（解いた分は補充しない）
   extra.forEach(r=>{ if(r.due>t) r.pulled=true; });
   const pending=qPending.concat(extra), left=pool.length-extra.length;
-  const moreBtn=left>0?`<button class="btn small" data-revmore="1">あと${Math.min(5,left)}問解く</button> <span class="muted">（追加で解ける問題 残り${left}問）</span>`:"";
-  let h=`<div class="card" id="revCard"><h2>今日の復習 ${qn?(achieved?`<span class="chip ok">ノルマ達成 ${doneQ}/${qn}</span>`:`<span class="chip mid">ノルマ ${doneQ}/${qn}問</span>`):`<span class="chip ok">ノルマなし</span>`}${doneX?` <span class="chip ok">追加 +${doneX}問</span>`:""}</h2>`;
-  if(achieved||(!qn&&done.length)) h+=`<div class="rv-goal">✓ 今日のノルマ（${qn}問）は達成しました${doneX?`。追加で${doneX}問解きました`:""}。</div>`;
+  const moreBtn=left>0?`<button class="btn small" data-revmore="1">先取りで${Math.min(5,left)}問解く</button> <span class="muted">（振り分けて先の日に回した問題 残り${left}問）</span>`:"";
+  let h=`<div class="card" id="revCard"><h2>今日の復習 ${qn?(achieved?`<span class="chip ok">今日の分 完了 ${doneQ}/${qn}</span>`:`<span class="chip mid">今日の分 ${doneQ}/${qn}問</span>`):`<span class="chip ok">今日の分なし</span>`}${doneX?` <span class="chip ok">先取り +${doneX}問</span>`:""}</h2>`;
+  if(qn&&!achieved) h+=`<p class="muted" style="margin:0 0 6px">予定日が来ている${qn}問${overN?`（うち予定日を過ぎている${overN}問）`:""}。古い順に並んでいます。あと${qn-doneQ}問。</p>`;
+  if(achieved||(!qn&&done.length)) h+=`<div class="rv-goal">✓ 予定日が来ている問題（${qn}問）は全部終わりました${doneX?`。先取りで${doneX}問解きました`:""}。</div>`;
   if(pending.length){ h+=`<h3 class="rv-h">まだの問題（${pending.length}問）</h3>`+pending.map(r=>row(r)).join(""); }
   else if(!qn&&!done.length) h+=`<p class="muted">今日解き直す問題はありません。</p>`;
-  if(moreBtn) h+=`<div class="rv-more">${achieved||!qn?"余裕があれば：":"ノルマのあとに追加で解くなら："}${moreBtn}</div>`;
+  if(moreBtn && (achieved||!qn)) h+=`<div class="rv-more">余裕があれば：${moreBtn}</div>`;
   if(done.length) h+=`<details class="rv-donelist"><summary data-sj="revdone">今日済んだ問題（${done.length}問）　<span class="muted">付け直し・取り消しはここから</span></summary>${done.map(r=>row(r)).join("")}</details>`;
   const wk={}; for(const r of soon){ wk[r.due]=(wk[r.due]||0)+1; }
   const next=Object.entries(wk).sort().slice(0,7).map(([d,c])=>md(d)+"："+c+"問").join("　");
   h+=`<p class="muted" style="margin-top:8px">確認する肢ごとに ○・△・× を押し、全部の肢を付け終わると記録されます（1つでも×なら×、△があれば△、全部○なら○）。記録した問題は下の「今日済んだ問題」に移り、次の予定日まで出ません。やらなかった問題は、翌日以降も古い順に出ます。○なら次は${REV_INT.slice(1).join("日後→")}日後、${REV_INT.length}回続けて○で卒業。×か△なら${REV_INT[0]}日後にもう一度。<b>×・△だった肢は、その場で解説と教科書を読んで、次は間違えないようにしてから次の問題へ。</b></p>
     <p class="muted">これからの復習：${next||"なし"}${grad?`　／卒業 ${grad}問`:""}</p>`;
-  if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="muted">次回 ${md(r.due)}</span></div>`).join("")}</div></details>`;
+  if(act.length) h+=`<details><summary>復習中の問題をすべて見る（${act.length}問）</summary><div class="loglist">${act.map(r=>`<div><span style="flex:1">${esc(r.p.s)} Sec${r.p.k} 問${r.n}　<span class="muted">${r.hist.map(x=>md(x.date)+sym(x.r)).join("→")}</span></span><span class="${r.due<=t?"rv-due":"rv-later"}">次回 ${md(r.due)}${r.due<t?"（過ぎています）":r.due===t?"（今日）":""}</span></div>`).join("")}</div><p class="muted" style="margin:6px 0 0"><span class="rv-due">赤</span>＝予定日が来ている問題、<span class="rv-later">灰色</span>＝まだ先の問題</p></details>`;
   return h+`</div>`;
 }
 const RSEL={}; // 肢ごとの入力途中（全部の肢がそろったら記録）
