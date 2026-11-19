@@ -174,6 +174,17 @@ table.acc td.o{color:var(--ok)}table.acc td.t{color:var(--mid)}table.acc td.x{co
 table.acc tr.tot td{border-top:2px solid var(--line)}
 table.acc .bar{display:inline-block;vertical-align:middle;width:70px;height:6px;border-radius:3px;background:var(--line);margin-left:8px;overflow:hidden}
 table.acc .bar i{display:block;height:100%;background:var(--ok)}
+table.wt{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+table.wt th,table.wt td{padding:6px 8px;border-top:1px solid var(--line);text-align:left;white-space:nowrap}
+table.wt th{color:var(--sub);font-weight:400;font-size:12px;border-top:0}
+table.wt td.wm{font-weight:700}table.wt td.wi{display:flex;gap:6px;justify-content:flex-end}table.wt td.wi input{width:72px}
+table.wt tr.none td.wd,table.wt tr.none td{color:var(--ng)}table.wt tr.sel td{background:var(--bg)}
+table.wt tr.tot td{border-top:2px solid var(--line);font-weight:700}
+details.rl{border-top:1px solid var(--line);padding:8px 0}details.rl summary{cursor:pointer;font-size:14px}
+details.rl .o{color:var(--ok)}details.rl .t{color:var(--mid)}details.rl .x{color:var(--ng)}
+details.memo{margin-top:10px}details.memo summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:700}details.memo textarea{margin-top:6px}
+.inl{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+@media (max-width:700px){table.wt td.wi input{width:56px}table.wt th:nth-child(4),table.wt td:nth-child(4){display:none}}
 .rv-btn{display:flex;gap:6px}.rv-btn .lim{width:44px}
 .sec.s-done{background:var(--ok-soft);border-radius:10px;padding:10px;border-top-color:transparent}
 .sbadge{flex:0 0 56px;height:56px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--none);color:var(--sub);border:2px dashed var(--line)}
@@ -215,7 +226,7 @@ button.stp{font:inherit;text-align:left;cursor:pointer}button.stp:hover{border-c
 <body>
 <header><div class="hwrap">
   <h1>社労士 進捗帳</h1><span class="sync" id="sync"></span><span class="sync" id="fsBar"></span><button class="tmchip" id="tmChip" title="タイマー（今日の画面へ）"></button>
-  <nav id="nav"><button data-v="all">全体</button><button data-v="today" class="on">今日</button><button data-v="rec">記録</button><button data-v="prog">進み具合</button></nav>
+  <nav id="nav"><button data-v="all">全体</button><button data-v="today" class="on">今日</button><button data-v="rec">記録・修正</button><button data-v="prog">進み具合</button></nav>
   <button class="iconbtn" id="openSet" title="設定">⚙</button>
 </div></header>
 
@@ -447,12 +458,13 @@ function aheadDays(){
 
 /* ===== 画面 ===== */
 let VIEW="today", REC={sec:null,round:1,simple:false,draft:null,form:{date:null,minutes:"",memo:""}};
-function show(v){ if(VIEW==="rec" && v!=="rec"){ saveMemo(); if(!pendEmpty(PEND)) flushPend(); } VIEW=v; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
+function show(v){ if((VIEW==="rec"||INL) && v!==VIEW){ saveMemo(); if(!pendEmpty(PEND)) flushPend(); } if(v!=="today") INL=null; if(v==="rec") REC.draft=null; VIEW=v;
+  for(const id of ["all","today","rec","prog"]) if(id!==v) $("#v-"+id).innerHTML=""; for(const b of document.querySelectorAll("#nav button")) b.classList.toggle("on",b.dataset.v===v);
   for(const id of ["all","today","rec","prog"]) $("#v-"+id).classList.toggle("hidden",id!==v); renderAll(); window.scrollTo(0,0); }
 function renderAll(){ if(!S) return; const _y=window.scrollY; const _open=[...document.querySelectorAll("details[open] summary")].map(x=>x.dataset.sj||x.textContent); const _closed=[...document.querySelectorAll("details:not([open]) summary[data-sj]")].map(x=>x.dataset.sj); if(VIEW==="all") renderOverview(); if(VIEW==="today") renderToday(); if(VIEW==="rec") renderRec(); if(VIEW==="prog") renderProg(); for(const d of document.querySelectorAll("details")){ const t=d.querySelector("summary"); if(!t) continue; const k=t.dataset.sj||t.textContent; if(_open.includes(k)) d.open=true; else if(_closed.includes(k)) d.open=false; } window.scrollTo(0,_y); }
 
 function secLine(p,withBtn=true){
-  const st=secState(p.id), done=Math.min(Object.keys(st.marks).length,qn(p)), ld=lecDate(p), t=todayIso(), stt=status(p);
+  const st=secState(p.id), open=INL===p.id&&REC.draft&&REC.draft.sec===p.id, done=Math.min(Object.keys(open?REC.draft.marks:st.marks).length,qn(p)), ld=lecDate(p), t=todayIso(), stt=status(p);
   const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
   const lecOk=!!st.lecture, lecRel=ld&&ld<=t;
   const step=(ok,part,lbl,val,tg)=>`<${tg?`button class="stp tg ${ok?"ok":part?"part":""}" data-tg="${tg}" data-sec="${p.id}" data-on="${ok?1:0}" title="${ok?"押すと取り消し":"押すと済にする"}"`:`div class="stp ${ok?"ok":part?"part":""}"`}><span class="ic">${ok?"✓":part?"…":""}</span><span><b>${lbl}</b><small>${val}</small></span></${tg?"button":"div"}>`;
@@ -460,9 +472,10 @@ function secLine(p,withBtn=true){
   return `<div class="sec s-${stt}">${badge}<div class="main">
     <div class="ttl">${esc(p.s)} Sec${p.k}　${esc(p.t)}</div>
     <div class="muted">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}${p.q1>p.q0?"〜"+p.q1:""}（${qn(p)}問）／予定 ${jdate(p.d0).replace(/（.）/,"")}${p.d1!==p.d0?"〜"+jdate(p.d1).replace(/（.）/,""):""}</div>
-    <div class="steps">${step(!!st.read,false,"教科書",st.read?"読んだ "+md(st.read):"まだ（押すと済）","read")}${step(lecOk,false,"講義",lecOk?"見た "+md(st.lecture):(lecRel?"配信済み・まだ":esc(lecLabel(p))+"配信")+"（押すと済）","lecture")}${step(done>=qn(p),done>0,"問題",done+" / "+qn(p)+"問"+(done&&done<qn(p)?"（あと"+(qn(p)-done)+"問）":""))}</div>
+    <div class="steps">${step(!!st.read,false,"教科書",st.read?"読んだ "+md(st.read):"まだ（押すと済）","read")}${step(lecOk,false,"講義",lecOk?"見た "+md(st.lecture):(lecRel?"配信済み・まだ":esc(lecLabel(p))+"配信")+"（押すと済）","lecture")}<button class="stp tg ${done>=qn(p)?"ok":done>0?"part":""}" data-inl="${p.id}" title="押すと問題の入力欄が開きます"><span class="ic">${done>=qn(p)?"✓":done>0?"…":""}</span><span><b>問題</b><small>${done} / ${qn(p)}問${done&&done<qn(p)?"（あと"+(qn(p)-done)+"問）":""}${open?"":"（押すと入力）"}</small></span></button></div>
     ${lecRel&&!lecOk?`<div style="margin-top:6px">${lecLink("▶ このSectionの講義を見る（TACの講義ページ）")}</div>`:""}
-  </div>${withBtn?`<button class="btn small" data-go="${p.id}">記録する</button>`:""}</div>`;
+    ${open?inlineHtml(p):""}
+  </div>${withBtn?`<button class="btn small ${open?"ghost":""}" data-inl="${p.id}">${open?"閉じる":"問題を記録"}</button>`:""}</div>`;
 }
 function toggleStep(sec,kind,on){
   const real=todayIso(), d=(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<real)?TODAY_VIEW:real;
@@ -484,11 +497,27 @@ function lateCard(real){
     const ld=lecDate(p); const lec=!st.lecture&&ld&&ld<=real?`<span class="muted">講義もまだ</span>`:"";
     return `<div class="lt-row"><div class="lt-d"><b>${md(p.d0)}${p.d1!==p.d0?"〜"+md(p.d1):""}</b><small>${days}日遅れ</small></div>
       <div class="lt-m"><div><b>${esc(p.s)} Sec${p.k}</b> <span class="muted">${esc(p.t)}</span></div><div class="lt-p">残り：${parts.join("　")} ${lec}</div></div>
-      <button class="btn small" data-go="${p.id}">記録する</button></div>`; }).join("");
+      <button class="btn small ${INL===p.id?"ghost":""}" data-inl="${p.id}">${INL===p.id?"閉じる":"問題を記録"}</button></div>${INL===p.id&&REC.draft&&REC.draft.sec===p.id?inlineHtml(p):""}`; }).join("");
   return `<div id="lateCard" class="lt-box"><h3>遅れている分 <span class="chip ng">${late.length} Section</span></h3>
     <p class="muted" style="margin:0 0 4px">合計：${pg?"教科書 "+pg+"ページ・":""}問題 ${qs}問。予定日の古い順（講義は遅れに数えていません）。</p>${rows}</div>`;
 }
-let TODAY_VIEW=null; // null＝今日。日付文字列なら、その日を表示
+function inlineHtml(p){
+  const dr=REC.draft, n=Object.keys(dr.marks).filter(k=>+k>=p.q0&&+k<=p.q1).length, all=n>=qn(p);
+  return `<div class="inl" id="inl"><div class="probs">${probRowsHtml(p)}</div>
+    ${all?`<div class="rv-goal" style="margin:8px 0">✓ このSectionの問題は全部記録しました（${qn(p)}問）。印は押せば直せます。</div>`:""}
+    <div class="row" style="margin-top:6px;align-items:center"><button class="btn ghost small" id="inlAllDone">未記録の問題を全○にする</button><span class="muted" id="dirty"></span><span style="flex:1"></span><button class="btn small" data-inl="${p.id}">閉じる</button></div>
+    <p class="muted" style="margin:4px 0 0">肢ごとに ○・△・× を1回押すだけ。まだ印のない問題で1つ押すと、残りの肢は○になります。押した印は自動で保存されます。</p></div>`;
+}
+function openInl(id){
+  id=+id;
+  if(INL===id){ INL=null; if(!pendEmpty(PEND)) flushPend(); renderAll(); return; }
+  if(!pendEmpty(PEND)) flushPend();
+  const real=todayIso();
+  REC.sec=id; REC.round=1; REC.form.date=(TODAY_VIEW&&TODAY_VIEW<real)?TODAY_VIEW:real; REC.draft=newDraft(id); INL=id;
+  renderAll(); setTimeout(()=>{ const el=$("#inl"); if(el){ const r=el.getBoundingClientRect(); if(r.top<60||r.top>innerHeight-120) el.scrollIntoView({block:"center",behavior:"smooth"}); } },30);
+}
+function afterMark(n){ renderAll(); focusRow(n); }
+let TODAY_VIEW=null, INL=null; // INL：今日の画面で問題の入力欄を開いているSection // null＝今日。日付文字列なら、その日を表示
 function renderToday(){
   const real=todayIso(), t=TODAY_VIEW||real, isToday=t===real, d=parse(t), el=$("#v-today");
   const shift=n=>{const x=parse(t); x.setDate(x.getDate()+n); return iso(x);};
@@ -512,19 +541,24 @@ function renderToday(){
   else if(!todays.length) h+=`<p class="muted">この日の予定はありません（1周目の計画は${jdate(PLAN[0].d0)}〜${jdate(PLAN[PLAN.length-1].d1)}）。</p>`;
   else{ const o=todays.find(p=>p.d0===t && p.k===1 && PLAN.find(q=>q.s===p.s).id===p.id); if(o) h+=`<p class="muted">${esc(o.s)}の初日です。オリエンテーションも読んでください。</p>`;
     h+=todays.map(p=>secLine(p)).join(""); }
+  if(t<=real) h+=`<details class="memo"><summary data-sj="todaymemo">＋${isToday?"今日":"この日"}のメモ</summary><textarea id="tMemo" placeholder="気づいたこと、覚えにくい数字など"></textarea><div class="row" style="margin-top:6px"><button class="btn small" id="tMemoSave">保存</button></div></details>`;
   h+=`</div>`;
   if(isToday) h+=reviewCard(t);
-  if(t<=real){ const dl=S.logs.filter(e=>e.date===t), dt=S.times.filter(e=>e.date===t);
-    const items=dl.flatMap(e=>(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);const n=Object.keys(it.probs||{}).length;return esc(q.s+" Sec"+q.k)+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(n?" 問題"+n+"問":"");}));
-    h+=`<div class="card"><h2>${isToday?"今日":"この日"}の記録</h2>${items.length||dt.length?`<p>${items.join("、")||"（Sectionの記録なし）"}</p>${dt.length?`<p class="muted">学習時間：${dt.map(e=>fmtMin(e.minutes)+(e.from?"（"+e.from+"〜"+e.to+"）":"")).join("、")}</p>`:""}`:`<p class="muted">記録はありません。</p>`}
-      <button class="btn ghost small" data-recday="${t}">この日の記録を入れる・直す</button></div>`; }
+  if(t<=real){ const dl=S.logs.filter(e=>e.date===t), st=dayStats(t), g=new Map();
+    for(const e of dl) for(const it of e.items||[]){ const k=it.sec; if(!g.has(k)) g.set(k,{probs:new Set(),read:undefined,lec:undefined}); const x=g.get(k); Object.keys(it.probs||{}).forEach(n=>x.probs.add(n)); if(it.read!==undefined) x.read=it.read; if(it.lecture!==undefined) x.lec=it.lecture; }
+    const items=[...g.entries()].map(([sec,x])=>{ const q=PLAN.find(y=>y.id==sec); const parts=[]; if(x.probs.size) parts.push("問題"+x.probs.size+"問"); if(x.read) parts.push("教科書"); if(x.lec) parts.push("講義"); return parts.length?esc(q.s+" Sec"+q.k)+"："+parts.join("・"):""; }).filter(Boolean);
+    const memos=dl.filter(e=>e.memo).map(e=>esc(e.memo));
+    h+=`<div class="card"><h2>${isToday?"今日":"この日"}の記録</h2>
+      <div class="row"><div class="stat"><div class="lbl">学習時間</div><div class="val">${fmtMin(S.minByDate[t]||0)}</div></div><div class="stat"><div class="lbl">解いた問題</div><div class="val">${st.solved}問</div></div><div class="stat"><div class="lbl">解き直し</div><div class="val">${st.rev}問</div></div></div>
+      ${items.length?`<p style="margin-bottom:0">${items.join("　／　")}</p>`:""}${memos.length?`<p class="muted">メモ：${memos.join("／")}</p>`:""}
+      <button class="btn ghost small" data-recday="${t}" style="margin-top:8px">記録・修正の画面で見る</button></div>`; }
   if(isToday){
     const ls_=lecSummary(); if(ls_.backlog.length) h+=`<div class="card"><h2>配信済みで未視聴の講義 <span class="chip mid">${ls_.backlog.length}本</span></h2><p class="muted">教科書を先に読んだSectionの講義は、配信されたら復習として見ます。</p><div class="row">${lecLink("▶ TACの講義ページを開く")}<button class="btn ghost small" data-golec="1">講義の一覧を見る</button></div></div>`;
   }
   el.innerHTML=h;
 }
 document.addEventListener("click",e=>{
-  const dy=e.target.closest("[data-day]"); if(dy){ const v=dy.dataset.day; TODAY_VIEW=(v&&v!==todayIso())?v:null; renderToday(); window.scrollTo(0,0); return; }
+  const dy=e.target.closest("[data-day]"); if(dy){ if(INL){ INL=null; if(!pendEmpty(PEND)) flushPend(); } const v=dy.dataset.day; TODAY_VIEW=(v&&v!==todayIso())?v:null; renderToday(); window.scrollTo(0,0); return; }
   const rd=e.target.closest("[data-recday]"); if(rd){ REC.form.date=rd.dataset.recday; show("rec"); }
 });
 
@@ -536,27 +570,8 @@ function newDraft(id){
   for(let n=p.q0;n<=p.q1;n++) if(st.marks[n]) marks[n]={...st.marks[n]};
   return {sec:+id, read:!!st.read, lecture:!!st.lecture, marks, touched:new Set()};
 }
-let REC_PARTIAL=false;
-function renderRec(){
-  const t=todayIso();
-  if(!REC.sec){ const p=PLAN.find(p=>p.d0<=t&&t<=p.d1 && status(p)!=="done")||PLAN.find(p=>status(p)!=="done")||PLAN[0]; REC.sec=p.id; }
-  if(!REC.draft || REC.draft.sec!==+REC.sec) REC.draft=newDraft(REC.sec);
-  const p=PLAN.find(x=>x.id==REC.sec), st=secState(p.id,REC.round), dr=REC.draft;
-  const date=REC.form.date||t;
-  let h=weekTimeCard(date)+`<div class="card"><h2>記録</h2><div class="grid2">
-    <div><label class="f">日付</label><input type="date" id="rDate" value="${date}"></div>
-    <div><label class="f">周回</label><select id="rRound">${[1,2,3].map(r=>`<option value="${r}" ${r==REC.round?"selected":""}>${r}周目</option>`).join("")}</select></div>
-    <div style="grid-column:1/-1"><label class="f">Section</label><select id="rSec">${secOptions(p.id)}</select></div>
-  </div>
-  <div class="muted" style="margin-top:8px">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}〜${p.q1}／講義 ${esc(lecLabel(p))}配信</div>
-  <div class="row" style="margin-top:4px">
-    <label class="check"><input type="checkbox" id="rRead" ${dr.read?"checked":""}> 教科書を読んだ ${st.read?`<span class="chip ok">済 ${st.read.slice(5)}</span>`:""}</label>
-    <label class="check"><input type="checkbox" id="rLec" ${dr.lecture?"checked":""}> 講義を見た ${st.lecture?`<span class="chip ok">済 ${st.lecture.slice(5)}</span>`:""}</label>
-  </div></div>`;
-  h+=`<div class="card"><h2>問題 <span class="muted" style="font-weight:400">間違えた肢は×、正解したが自信がない肢は△</span></h2>
-    <div class="row"><button class="btn ghost small" id="allDone">未記録の問題を「解いた（全肢○）」にする</button>
-    <label class="check"><input type="checkbox" id="rSimple" ${REC.simple?"checked":""}> 簡易入力（問題ごとに○△×）</label></div>
-    <div class="probs" id="probs">`;
+function probRowsHtml(p){
+  const dr=REC.draft; let h="";
   for(let n=p.q0;n<=p.q1;n++){
     const m=dr.marks[n], r=judge(m);
     h+=`<div class="prow ${m?"":"untouched"}" tabindex="0" data-n="${n}"><span class="no">問${n}</span>`;
@@ -570,13 +585,64 @@ function renderRec(){
     }
     h+=`<span class="res ${r||""}">${r?({o:"○",x:"×",t:"△"}[r]):""}</span></div>`;
   }
-  h+=`</div><p class="muted">肢ごとに ○・△・× を1回押すだけ。まだ印のない問題で1つ押すと、残りの肢は○になります。全部正解なら「全○」。キーボードは行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span> で肢を切替、<span class="kbd">0</span> で全○。</p></div>`;
-  h+=`<div class="card"><label class="f">メモ（任意）</label><textarea id="rMemo" placeholder="気づいたこと、弱点ノートに回したい論点など">${esc(REC.form.memo)}</textarea>
+  return h;
+}
+function recListHtml(date){
+  const vs=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target));
+  const dl=S.logs.filter(e=>e.date===date), dt=S.times.filter(e=>e.date===date), dr=EVENTS.filter(e=>e.t==="rev"&&e.date===date&&!vs.has(e.id));
+  const md=d=>(+d.slice(5,7))+"/"+(+d.slice(8));
+  const evLine=e=>{ const its=(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).map(n=>"問"+n).join("・"):"")}).join("、");
+    return `<div><span class="muted" style="flex:1">${new Date(e.ts).getHours()}:${pad(new Date(e.ts).getMinutes())}　${esc(its)}${e.memo?"／メモ："+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`; };
+  // Sectionごとにまとめる
+  const g=new Map();
+  for(const e of dl) for(const it of e.items||[]){ const k=it.sec+":"+(it.round||1); if(!g.has(k)) g.set(k,{sec:it.sec,round:it.round||1,probs:{},read:undefined,lec:undefined,evs:new Set()});
+    const x=g.get(k); Object.assign(x.probs,it.probs||{}); if(it.read!==undefined) x.read=it.read; if(it.lecture!==undefined) x.lec=it.lecture; x.evs.add(e); }
+  const memos=dl.filter(e=>e.memo);
+  let h=`<div class="card" id="recList"><h2>${date===todayIso()?"今日":jdate(date)}の記録</h2>`;
+  const rows=[...g.values()].map(x=>{ const q=PLAN.find(y=>y.id==x.sec), ks=Object.keys(x.probs), c={o:0,t:0,x:0}; ks.forEach(n=>c[judge(x.probs[n])]++);
+    const parts=[]; if(ks.length) parts.push(`問題${ks.length}問（<span class="o">○${c.o}</span>・<span class="t">△${c.t}</span>・<span class="x">×${c.x}</span>）`);
+    if(x.read) parts.push("教科書"); if(x.read===false) parts.push("教科書を未読に戻す"); if(x.lec) parts.push("講義"); if(x.lec===false) parts.push("講義を未視聴に戻す");
+    if(!parts.length) return "";
+    return `<details class="rl"><summary><b>${esc(q.s)} Sec${q.k}</b>${x.round>1?`（${x.round}周目）`:""}　${parts.join("・")}</summary><div class="loglist">${[...x.evs].map(evLine).join("")}</div></details>`; }).join("");
+  const rc={o:0,t:0,x:0}; dr.forEach(e=>rc[e.r]=(rc[e.r]||0)+1);
+  const revRow=dr.length?`<details class="rl"><summary><b>解き直し</b>　${new Set(dr.map(e=>e.sec+":"+e.n)).size}問（<span class="o">○${rc.o}</span>・<span class="t">△${rc.t}</span>・<span class="x">×${rc.x}</span>）</summary><div class="loglist">${dr.map(e=>{const q=PLAN.find(x=>x.id===e.sec);return `<div><span style="flex:1">${esc(q.s)} Sec${q.k} 問${e.n}　${sym(e.r)}${e.lim?"（"+Object.entries(e.lim).map(([i,v])=>LIM[i]+sym(v)).join("・")+"）":""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`}).join("")}</div></details>`:"";
+  const timeRow=dt.length?`<details class="rl"><summary><b>学習時間</b>　${fmtMin(dt.reduce((a,e)=>a+e.minutes,0))}（${dt.length}件）</summary><div class="loglist">${dt.map(e=>`<div><span style="flex:1">${e.minutes<0?"":"+"}${fmtMin(e.minutes)}　<span class="muted">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span></span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}</div></details>`:"";
+  const memoRow=memos.length?`<details class="rl"><summary><b>メモ</b>　${memos.length}件</summary><div class="loglist">${memos.map(evLine).join("")}</div></details>`:"";
+  h+=(timeRow+rows+revRow+memoRow)||`<p class="muted">この日の記録はありません。</p>`;
+  return h+`<p class="muted" style="margin-bottom:0">行を押すと、中の記録が開きます。間違えた記録は、中の「取消」で消せます。</p></div>`;
+}
+let REC_PARTIAL=false;
+function renderRec(){
+  const t=todayIso();
+  if(!REC.sec){ const p=PLAN.find(p=>p.d0<=t&&t<=p.d1 && status(p)!=="done")||PLAN.find(p=>status(p)!=="done")||PLAN[0]; REC.sec=p.id; }
+  if(!REC.draft || REC.draft.sec!==+REC.sec) REC.draft=newDraft(REC.sec);
+  const p=PLAN.find(x=>x.id==REC.sec), st=secState(p.id,REC.round), dr=REC.draft;
+  const date=REC.form.date||t;
+  const sh=n=>{ const x=parse(date); x.setDate(x.getDate()+n); return iso(x); };
+  let h=weekTimeCard(date);
+  h+=`<div class="card"><div class="daynav"><button class="btn ghost small" data-recdate="${sh(-1)}">◀ 前の日</button>
+      <span class="dn-label"><b>${date===t?"今日":jdate(date)}</b>${date===t?"　"+jdate(date):""}　<input type="date" id="rDate" value="${date}" style="width:auto"></span>
+      ${date!==t?`<button class="btn small" data-recdate="${t}">今日に戻る</button>`:""}${date<t?`<button class="btn ghost small" data-recdate="${sh(1)}">次の日 ▶</button>`:""}</div></div>`;
+  h+=recListHtml(date);
+  const ix=PLAN.findIndex(x=>x.id==p.id);
+  h+=`<div class="card" id="recSec"><h2>Sectionを選んで記録する <span class="muted" style="font-weight:400">入れ忘れ・2周目以降など（${date===t?"今日":jdate(date)}の記録になります）</span></h2>
+    <div class="row" style="align-items:center;flex-wrap:nowrap"><button class="btn ghost small" data-recsec="${ix>0?PLAN[ix-1].id:""}" ${ix>0?"":"disabled"}>◀</button>
+      <select id="rSec" style="flex:1">${secOptions(p.id)}</select>
+      <button class="btn ghost small" data-recsec="${ix<PLAN.length-1?PLAN[ix+1].id:""}" ${ix<PLAN.length-1?"":"disabled"}>▶</button>
+      <select id="rRound" style="width:auto">${[1,2,3].map(r=>`<option value="${r}" ${r==REC.round?"selected":""}>${r}周目</option>`).join("")}</select></div>
+    <div class="muted" style="margin-top:8px">教科書 p.${p.p0}〜${p.p1}（${p.pg}p）／問題 問${p.q0}〜${p.q1}／講義 ${esc(lecLabel(p))}配信</div>
+    <div class="row" style="margin-top:4px">
+      <label class="check"><input type="checkbox" id="rRead" ${dr.read?"checked":""}> 教科書を読んだ ${st.read?`<span class="chip ok">済 ${st.read.slice(5)}</span>`:""}</label>
+      <label class="check"><input type="checkbox" id="rLec" ${dr.lecture?"checked":""}> 講義を見た ${st.lecture?`<span class="chip ok">済 ${st.lecture.slice(5)}</span>`:""}</label>
+    </div>`;
+  h+=`<h3 class="rv-h" style="margin-top:12px">問題 <span class="muted" style="font-weight:400">間違えた肢は×、正解したが自信がない肢は△</span></h3>
+    <div class="row"><button class="btn ghost small" id="allDone">未記録の問題を「解いた（全肢○）」にする</button>
+    <label class="check"><input type="checkbox" id="rSimple" ${REC.simple?"checked":""}> 簡易入力（問題ごとに○△×）</label></div>
+    <div class="probs" id="probs">`;
+  h+=probRowsHtml(p);
+  h+=`</div><p class="muted">肢ごとに ○・△・× を1回押すだけ。まだ印のない問題で1つ押すと、残りの肢は○になります。全部正解なら「全○」。キーボードは行を選んで <span class="kbd">1</span>〜<span class="kbd">5</span> で肢を切替、<span class="kbd">0</span> で全○。</p>`;
+  h+=`<details class="memo" ${REC.form.memo?"open":""}><summary data-sj="recmemo">＋メモを書く</summary><textarea id="rMemo" placeholder="気づいたこと、弱点ノートに回したい論点など">${esc(REC.form.memo)}</textarea></details>
     <div style="margin-top:10px" class="row"><span class="muted" id="dirty"></span><button class="btn ghost small" id="save">今すぐ保存</button></div><p class="muted">チェックや○△×は、押したそばから自動で保存されます（数秒後に本番へ）。メモは入力欄から離れたときに保存されます。</p></div>`;
-  const dl=S.logs.filter(e=>e.date===date);
-  const dtimes=S.times.filter(e=>e.date===date);
-  const vset=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target)), drevs=EVENTS.filter(e=>e.t==="rev"&&e.date===date&&!vset.has(e.id));
-  h+=`<div class="card" id="recList"><h2>${jdate(date)}の記録</h2><div class="loglist">${drevs.map(e=>{const q=PLAN.find(x=>x.id===e.sec);return `<div><span>復習 ${esc(q.s)} Sec${q.k} 問${e.n}　${sym(e.r)}</span><span style="flex:1"></span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`}).join("")}${dtimes.map(e=>`<div><span>学習時間 +${fmtMin(e.minutes)}</span><span class="muted" style="flex:1">${esc(e.memo||"")}${e.from?" "+esc(e.from)+"〜"+esc(e.to):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join("")}${dl.length?dl.map(e=>`<div><span>${e.minutes?fmtMin(e.minutes):""}</span><span class="muted" style="flex:1">${(e.items||[]).map(it=>{const q=PLAN.find(x=>x.id==it.sec);return q.s+" Sec"+q.k+(it.read?" 教科書":it.read===false?" 教科書を未読に戻す":"")+(it.lecture?" 講義":it.lecture===false?" 講義を未視聴に戻す":"")+(Object.keys(it.probs||{}).length?" 問題"+Object.keys(it.probs).length+"問":"")}).join("、")}${e.memo?"／"+esc(e.memo):""}</span><button class="btn ghost small" data-void="${e.id}">取消</button></div>`).join(""):(dtimes.length||drevs.length?"":`<p class="muted">まだ記録はありません。</p>`)}</div></div>`;
   if(REC_PARTIAL && $("#recList")){ const tmp=document.createElement("div"); tmp.innerHTML=h; $("#recList").replaceWith(tmp.querySelector("#recList")); updAuto(); return; }
   $("#v-rec").innerHTML=h;
   updAuto();
@@ -592,15 +658,26 @@ function setLim(n,i,v){ const dr=REC.draft, m=dr.marks[n]; const c=(m&&m.c)? m.c
 function setAllO(n){ const dr=REC.draft; dr.marks[n]={c:"ooooo"}; dr.touched.add(n); pendProb(n); }
 function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); pendProb(n); }
 function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n); pendProb(n);} }
+function dayStats(d){ // その日に○△×を付けた問題（1周目の新しい問題など）と、解き直しの数
+  const ps=new Set(); for(const e of S.logs) if(e.date===d) for(const it of e.items||[]) for(const n of Object.keys(it.probs||{})) ps.add(it.sec+":"+n);
+  const vs=new Set(EVENTS.filter(e=>e.t==="void").map(e=>e.target));
+  const rv=new Set(EVENTS.filter(e=>e.t==="rev"&&e.date===d&&!vs.has(e.id)).map(e=>e.sec+":"+e.n));
+  return {solved:ps.size, rev:rv.size};
+}
 function weekTimeCard(sel){
   const t=todayIso(), days=[]; for(let i=0;i<7;i++){ const d=parse(t); d.setDate(d.getDate()-i); days.push(iso(d)); }
   if(sel && !days.includes(sel)) days.push(sel);
-  const rows=days.map(d=>{ const m=S.minByDate[d]||0, has=S.logs.some(e=>e.date===d), pre="wt"+d.replace(/-/g,"");
-    return `<div class="wt-row ${m?"":has?"miss":""}"><span class="wd">${d===t?"今日":jdate(d)}</span>
-      <span class="wm">${m?fmtMin(m):has?'<span class="chip mid">記録あり・時間なし</span>':'<span class="muted">—</span>'}</span>
-      <span class="wi"><input type="number" id="${pre}min" min="0" step="5" inputmode="numeric" placeholder="分"><button class="btn small" data-addtime="${pre}" data-date="${d}">追加</button></span></div>`; }).join("");
-  return `<div class="card"><h2>学習時間 <span class="muted" style="font-weight:400">直近1週間・日ごとの合計（Sectionとは別）</span></h2>${rows}
-    <p class="muted">入れ忘れた日は、その行に分数を入れて「追加」。何回かに分けて足しても大丈夫です。間違えたら下の一覧の「取消」で消せます。1週間より前の日は、下の「日付」をその日にすると、この表に行が出ます。</p></div>`;
+  let tm=0,ts=0,tr=0;
+  const rows=days.map(d=>{ const m=S.minByDate[d]||0, st=dayStats(d), has=S.logs.some(e=>e.date===d)||st.rev, pre="wt"+d.replace(/-/g,"");
+    if(days.indexOf(d)<7){ tm+=m; ts+=st.solved; tr+=st.rev; }
+    const none=!m&&!has;
+    return `<tr class="${none?"none":m?"":"miss"} ${d===sel?"sel":""}"><td class="wd">${d===t?"今日":jdate(d)}</td>
+      <td class="wm">${m?fmtMin(m):has?'<span class="chip mid">時間なし</span>':"—"}</td><td>${st.solved?st.solved+"問":"—"}</td><td>${st.rev?st.rev+"問":"—"}</td>
+      <td class="wi"><input type="number" id="${pre}min" min="0" step="5" inputmode="numeric" placeholder="分"><button class="btn small" data-addtime="${pre}" data-date="${d}">足す</button></td></tr>`; }).join("");
+  return `<div class="card"><h2>学習時間と問題数 <span class="muted" style="font-weight:400">直近1週間</span></h2>
+    <table class="wt"><tr><th>日付</th><th>学習時間</th><th>解いた問題</th><th>解き直し</th><th></th></tr>${rows}
+    <tr class="tot"><td>7日間の合計</td><td>${fmtMin(tm)}</td><td>${ts}問</td><td>${tr}問</td><td></td></tr></table>
+    <p class="muted">解いた問題＝その日に○△×を付けた問題の数。解き直し＝「今日の復習」で記録した数。入れ忘れた時間は、その行に分数を入れて「足す」。赤い行は何も記録がない日です。</p></div>`;
 }
 function timeCard(date,pre){
   return `<div class="card"><h2>この日の学習時間 <span class="muted" style="font-weight:400">日ごとの合計で記録（Sectionとは別）</span></h2>
@@ -1100,18 +1177,24 @@ tmInit();
 
 /* ===== イベント ===== */
 document.addEventListener("click",e=>{
-  const go=e.target.closest("[data-go]"); if(go){ REC.sec=+go.dataset.go; REC.draft=null; if(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<todayIso()) REC.form.date=TODAY_VIEW; show("rec"); return; }
+  const go=e.target.closest("[data-go]"); if(go){ INL=null; REC.sec=+go.dataset.go; REC.draft=null; if(VIEW==="today"&&TODAY_VIEW&&TODAY_VIEW<todayIso()) REC.form.date=TODAY_VIEW; show("rec"); return; }
   const nb=e.target.closest("#nav button"); if(nb){ if(nb.dataset.v==="today") TODAY_VIEW=null; show(nb.dataset.v); return; }
-  const lb=e.target.closest(".lb[data-i]"); if(lb){ setLim(+lb.dataset.n,+lb.dataset.i,lb.dataset.v); renderRec(); focusRow(lb.dataset.n); return; }
-  const ao=e.target.closest("[data-allo]"); if(ao){ setAllO(+ao.dataset.allo); renderRec(); focusRow(ao.dataset.allo); return; }
-  const si=e.target.closest("[data-simple]"); if(si){ cycleSimple(+si.dataset.simple); renderRec(); focusRow(si.dataset.simple); return; }
+  const il=e.target.closest("[data-inl]"); if(il){ openInl(il.dataset.inl); return; }
+  const lb=e.target.closest(".lb[data-i]"); if(lb){ setLim(+lb.dataset.n,+lb.dataset.i,lb.dataset.v); afterMark(lb.dataset.n); return; }
+  const ao=e.target.closest("[data-allo]"); if(ao){ setAllO(+ao.dataset.allo); afterMark(ao.dataset.allo); return; }
+  const si=e.target.closest("[data-simple]"); if(si){ cycleSimple(+si.dataset.simple); afterMark(si.dataset.simple); return; }
+  if(e.target.id==="inlAllDone"){ const p=PLAN.find(x=>x.id==REC.sec); for(let n=p.q0;n<=p.q1;n++) markDone(n); renderAll(); return; }
+  const rd=e.target.closest("[data-recdate]"); if(rd){ saveMemo(); flushPend(); REC.form.date=rd.dataset.recdate; REC.draft=null; renderRec(); return; }
+  const rs=e.target.closest("[data-recsec]"); if(rs&&rs.dataset.recsec){ saveMemo(); flushPend(); REC.sec=+rs.dataset.recsec; REC.draft=null; renderAll(); return; }
+  if(e.target.id==="tMemoSave"){ const v=($("#tMemo").value||"").trim(); if(!v) return; const real=todayIso(), d=(TODAY_VIEW&&TODAY_VIEW<real)?TODAY_VIEW:real;
+    saveOptimistic([{t:"day",id:uid(),ts:Date.now(),date:d,minutes:0,memo:v,items:[]}],"メモを保存しました"); return; }
   const vd=e.target.closest("[data-void]"); if(vd){ voidEv(vd.dataset.void); return; }
   const at=e.target.closest("[data-addtime]"); if(at){ addTime(at.dataset.addtime,at.dataset.date); return; }
   const lw=e.target.closest("[data-lecwatch]"); if(lw){ lecWatch(lw.dataset.lecwatch); return; }
   if(e.target.closest("[data-golec]")){ show("prog"); setTimeout(()=>$("#lecCard")&&$("#lecCard").scrollIntoView({behavior:"smooth"}),50); return; }
   if(e.target.id==="fsAllow"){ writeFiles(true).then(ok=>ok&&toast("dataフォルダに保存しました")); return; }
   if(e.target.id==="fsSetLink"){ e.preventDefault(); $("#set").classList.remove("hidden"); return; }
-  if(e.target.id==="allDone"){ const p=PLAN.find(x=>x.id==REC.sec); for(let n=p.q0;n<=p.q1;n++) markDone(n); renderRec(); return; }
+  if(e.target.id==="allDone"){ const p=PLAN.find(x=>x.id==REC.sec); for(let n=p.q0;n<=p.q1;n++) markDone(n); renderAll(); return; }
   if(e.target.id==="save"){ save(); return; }
 });
 document.addEventListener("change",e=>{
@@ -1127,10 +1210,10 @@ document.addEventListener("input",e=>{
 });
 function focusRow(n){ const r=document.querySelector(`.prow[data-n="${n}"]`); if(r) r.focus({preventScroll:true}); }
 document.addEventListener("keydown",e=>{
-  const row=e.target.closest&&e.target.closest(".prow"); if(!row||VIEW!=="rec") return;
+  const row=e.target.closest&&e.target.closest(".prow"); if(!row) return;
   const n=+row.dataset.n;
-  if(/^[1-5]$/.test(e.key)&&!REC.simple){ e.preventDefault(); cycleLim(n,+e.key-1); renderRec(); focusRow(n); }
-  else if(e.key==="0"){ e.preventDefault(); markDone(n); renderRec(); focusRow(n); }
+  if(/^[1-5]$/.test(e.key)&&!REC.simple){ e.preventDefault(); cycleLim(n,+e.key-1); afterMark(n); }
+  else if(e.key==="0"){ e.preventDefault(); markDone(n); afterMark(n); }
   else if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); const sib=e.key==="ArrowDown"?row.nextElementSibling:row.previousElementSibling; if(sib&&sib.classList.contains("prow")) sib.focus(); }
 });
 window.addEventListener("beforeunload",()=>{ pendStore(); if(!pendEmpty(PEND)||qGet().length) flushPend(); });
