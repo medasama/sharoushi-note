@@ -203,6 +203,7 @@ button.stp{font:inherit;text-align:left;cursor:pointer}button.stp:hover{border-c
 .prow{flex-wrap:wrap}
 .allo{border:1px solid var(--line);background:var(--panel);color:var(--sub);border-radius:7px;font:inherit;font-size:12px;font-weight:700;padding:0 8px;height:30px;cursor:pointer}
 .allo.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.allo.allx.on{background:var(--ng);border-color:var(--ng)}
 .lg{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
 .lg b{font-size:11px;color:var(--sub);padding:0 4px 0 6px}
 .lb{width:28px;height:30px;border:0;border-left:1px solid var(--line);background:var(--panel);color:var(--line);font:inherit;font-weight:700;cursor:pointer}
@@ -579,7 +580,7 @@ function probRowsHtml(p){
       h+=`<button class="lim ${m?(m.s||judge(m)):""}" data-simple="${n}" style="width:64px">${m?({o:"○",x:"×",t:"△"}[m.s||judge(m)]):"未"}</button>`;
     } else {
       const c=m&&m.c? m.c : (m&&m.s? null : null);
-      h+=`<button class="allo ${c&&c==="ooooo"?"on":""}" data-allo="${n}" title="全部の肢が○">全○</button>`;
+      h+=`<button class="allo ${c&&c==="ooooo"?"on":""}" data-allo="${n}" title="全部の肢が○">全○</button><button class="allo allx ${c&&c==="xxxxx"?"on":""}" data-allx="${n}" title="全部の肢が×">全×</button>`;
       LIM.forEach((L,i)=>{ const v=c?c[i]:null; h+=`<span class="lg"><b>${L}</b>${["o","t","x"].map(x=>`<button class="lb ${x} ${v===x?"on":""}" data-n="${n}" data-i="${i}" data-v="${x}">${sym(x)}</button>`).join("")}</span>`; });
       if(m&&m.s) h+=`<span class="muted">簡易：${({o:"○",x:"×",t:"△"}[m.s])}</span>`;
     }
@@ -656,6 +657,7 @@ function cycleLim(n,i){
 }
 function setLim(n,i,v){ const dr=REC.draft, m=dr.marks[n]; const c=(m&&m.c)? m.c.split("") : ["o","o","o","o","o"]; c[i]=v; dr.marks[n]={c:c.join("")}; dr.touched.add(n); pendProb(n); }
 function setAllO(n){ const dr=REC.draft; dr.marks[n]={c:"ooooo"}; dr.touched.add(n); pendProb(n); }
+function setAllX(n){ const dr=REC.draft; dr.marks[n]={c:"xxxxx"}; dr.touched.add(n); pendProb(n); }
 function cycleSimple(n){ const dr=REC.draft, m=dr.marks[n]; const cur=m?(m.s||judge(m)):null; dr.marks[n]={s:{null:"o",o:"t",t:"x",x:"o"}[cur]}; dr.touched.add(n); pendProb(n); }
 function markDone(n){ const dr=REC.draft; if(!dr.marks[n]){ dr.marks[n]=REC.simple?{s:"o"}:{c:"ooooo"}; dr.touched.add(n); pendProb(n);} }
 function dayStats(d){ // その日に○△×を付けた問題（1周目の新しい問題など）と、解き直しの数
@@ -1182,6 +1184,7 @@ document.addEventListener("click",e=>{
   const il=e.target.closest("[data-inl]"); if(il){ openInl(il.dataset.inl); return; }
   const lb=e.target.closest(".lb[data-i]"); if(lb){ setLim(+lb.dataset.n,+lb.dataset.i,lb.dataset.v); afterMark(lb.dataset.n); return; }
   const ao=e.target.closest("[data-allo]"); if(ao){ setAllO(+ao.dataset.allo); afterMark(ao.dataset.allo); return; }
+  const ax=e.target.closest("[data-allx]"); if(ax){ setAllX(+ax.dataset.allx); afterMark(ax.dataset.allx); return; }
   const si=e.target.closest("[data-simple]"); if(si){ cycleSimple(+si.dataset.simple); afterMark(si.dataset.simple); return; }
   if(e.target.id==="inlAllDone"){ const p=PLAN.find(x=>x.id==REC.sec); for(let n=p.q0;n<=p.q1;n++) markDone(n); renderAll(); return; }
   const rd=e.target.closest("[data-recdate]"); if(rd){ saveMemo(); flushPend(); REC.form.date=rd.dataset.recdate; REC.draft=null; renderRec(); return; }
